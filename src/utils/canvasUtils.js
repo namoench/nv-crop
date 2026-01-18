@@ -15,14 +15,45 @@ export const MAX_CIRCLE_PERCENT = 0.9
 export const FEATHER_PERCENT = 0.025
 
 /**
+ * Get rotated image dimensions
+ */
+function getRotatedDimensions(width, height, rotation) {
+  const isRotated90or270 = rotation === 90 || rotation === 270
+  return {
+    width: isRotated90or270 ? height : width,
+    height: isRotated90or270 ? width : height,
+  }
+}
+
+/**
+ * Draw rotated image to a temporary canvas
+ */
+function drawRotatedImage(image, rotation) {
+  const { width, height } = getRotatedDimensions(image.width, image.height, rotation)
+  const tempCanvas = document.createElement('canvas')
+  tempCanvas.width = width
+  tempCanvas.height = height
+  const tempCtx = tempCanvas.getContext('2d')
+
+  tempCtx.save()
+  tempCtx.translate(width / 2, height / 2)
+  tempCtx.rotate((rotation * Math.PI) / 180)
+  tempCtx.drawImage(image, -image.width / 2, -image.height / 2)
+  tempCtx.restore()
+
+  return tempCanvas
+}
+
+/**
  * Draw the source image with circular crop onto a canvas
  * @param {HTMLCanvasElement} canvas - The canvas to draw on
  * @param {HTMLImageElement} image - The source image
  * @param {Object} circle - Circle selection {x, y, radius} in image coordinates
  * @param {string} edgeStyle - 'hard' or 'feathered'
  * @param {string} phosphorColor - 'green' or 'white'
+ * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
  */
-export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green') {
+export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0) {
   const ctx = canvas.getContext('2d')
   canvas.width = OUTPUT_WIDTH
   canvas.height = OUTPUT_HEIGHT
@@ -30,6 +61,9 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
   // Fill with black background
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+
+  // Get rotated source image if rotation is applied
+  const sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
 
   // Calculate the output circle size
   // Scale the circle proportionally, but cap at MAX_CIRCLE_PERCENT of width
@@ -69,7 +103,7 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
     ctx.clip()
 
     ctx.drawImage(
-      image,
+      sourceImage,
       sourceX, sourceY, sourceSize, sourceSize,
       outputX, outputY, outputSize, outputSize
     )
@@ -133,7 +167,7 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
 
     // Draw the image portion
     ctx.drawImage(
-      image,
+      sourceImage,
       sourceX, sourceY, sourceSize, sourceSize,
       outputX, outputY, outputSize, outputSize
     )
@@ -148,7 +182,10 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
  * Render a single circle crop to a specific position on canvas
  * Helper for dual render
  */
-function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor) {
+function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, rotation = 0) {
+  // Get rotated source image if rotation is applied
+  const sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
+
   const sourceRadius = radius
   const sourceX = circle.x - sourceRadius
   const sourceY = circle.y - sourceRadius
@@ -165,7 +202,7 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
     ctx.clip()
 
     ctx.drawImage(
-      image,
+      sourceImage,
       sourceX, sourceY, sourceSize, sourceSize,
       outputX, outputY, outputSize, outputSize
     )
@@ -220,7 +257,7 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
     ctx.clip()
 
     ctx.drawImage(
-      image,
+      sourceImage,
       sourceX, sourceY, sourceSize, sourceSize,
       outputX, outputY, outputSize, outputSize
     )
@@ -240,8 +277,10 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
  * @param {string} layout - 'vertical' or 'horizontal'
  * @param {string} edgeStyle - 'hard' or 'feathered'
  * @param {string} phosphorColor - 'green' or 'white'
+ * @param {number} rotation1 - Rotation for image1 in degrees (0, 90, 180, 270)
+ * @param {number} rotation2 - Rotation for image2 in degrees (0, 90, 180, 270)
  */
-export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor) {
+export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1 = 0, rotation2 = 0) {
   const ctx = canvas.getContext('2d')
   canvas.width = OUTPUT_WIDTH
   canvas.height = OUTPUT_HEIGHT
@@ -271,9 +310,9 @@ export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2,
     center2Y = OUTPUT_HEIGHT / 2
   }
 
-  // Render both circles
-  renderCircleToCanvas(ctx, image1, circle1, sharedRadius, center1X, center1Y, outputRadius, edgeStyle, phosphorColor)
-  renderCircleToCanvas(ctx, image2, circle2, sharedRadius, center2X, center2Y, outputRadius, edgeStyle, phosphorColor)
+  // Render both circles with their respective rotations
+  renderCircleToCanvas(ctx, image1, circle1, sharedRadius, center1X, center1Y, outputRadius, edgeStyle, phosphorColor, rotation1)
+  renderCircleToCanvas(ctx, image2, circle2, sharedRadius, center2X, center2Y, outputRadius, edgeStyle, phosphorColor, rotation2)
 
   return canvas
 }

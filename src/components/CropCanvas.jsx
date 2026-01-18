@@ -1,18 +1,26 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20 // Touch-friendly handle size
 const HANDLE_HIT_RADIUS = 30 // Larger hit area for touch
 
-export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor }) {
+export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, rotation = 0 }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const [scale, setScale] = useState(1)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(null) // 'center' or 'edge'
   const [dragStart, setDragStart] = useState(null)
 
-  // Calculate display scale to fit image in container
+  // Calculate rotated dimensions
+  const rotatedDims = useMemo(() => {
+    const isRotated90or270 = rotation === 90 || rotation === 270
+    return {
+      width: isRotated90or270 ? image.height : image.width,
+      height: isRotated90or270 ? image.width : image.height,
+    }
+  }, [image, rotation])
+
+  // Calculate display scale to fit rotated image in container
   useEffect(() => {
     if (!containerRef.current || !image) return
 
@@ -21,43 +29,45 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
       const containerWidth = container.clientWidth
       const containerHeight = container.clientHeight
 
-      const scaleX = containerWidth / image.width
-      const scaleY = containerHeight / image.height
+      const scaleX = containerWidth / rotatedDims.width
+      const scaleY = containerHeight / rotatedDims.height
       const newScale = Math.min(scaleX, scaleY, 1) // Don't scale up
 
       setScale(newScale)
-      setOffset({
-        x: (containerWidth - image.width * newScale) / 2,
-        y: (containerHeight - image.height * newScale) / 2,
-      })
     }
 
     updateScale()
     window.addEventListener('resize', updateScale)
     return () => window.removeEventListener('resize', updateScale)
-  }, [image])
+  }, [image, rotatedDims])
 
-  // Draw the preview
+  // Draw the preview with rotation
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !image) return
 
     const ctx = canvas.getContext('2d')
-    const displayWidth = image.width * scale
-    const displayHeight = image.height * scale
+    const displayWidth = rotatedDims.width * scale
+    const displayHeight = rotatedDims.height * scale
 
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    // Draw image
-    ctx.drawImage(image, 0, 0, displayWidth, displayHeight)
+    // Apply rotation and draw image
+    ctx.save()
+    ctx.translate(displayWidth / 2, displayHeight / 2)
+    ctx.rotate((rotation * Math.PI) / 180)
+
+    const drawWidth = image.width * scale
+    const drawHeight = image.height * scale
+    ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
+    ctx.restore()
 
     // Draw darkened overlay outside circle
     const circleX = circle.x * scale
     const circleY = circle.y * scale
     const circleRadius = circle.radius * scale
 
-    // Create a path for the darkened area (inverse of circle)
     ctx.save()
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
     ctx.beginPath()
@@ -70,7 +80,6 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     ctx.save()
 
     if (edgeStyle === 'feathered') {
-      // Show thin glow preview at edge based on phosphor color
       const glowWidth = circleRadius * FEATHER_PERCENT
       const glowGradient = ctx.createRadialGradient(
         circleX, circleY, circleRadius - glowWidth,
@@ -93,7 +102,6 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
       ctx.arc(circleX, circleY, circleRadius - glowWidth, 0, Math.PI * 2)
       ctx.stroke()
 
-      // Thin border in matching color
       ctx.strokeStyle = phosphorColor === 'green' ? 'rgba(0, 255, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)'
       ctx.lineWidth = 1.5
     } else {
@@ -107,7 +115,7 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     ctx.restore()
 
     // Draw resize handle
-    const handleAngle = -Math.PI / 4 // Top-right
+    const handleAngle = -Math.PI / 4
     const handleX = circleX + Math.cos(handleAngle) * circleRadius
     const handleY = circleY + Math.sin(handleAngle) * circleRadius
 
@@ -129,9 +137,9 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor])
+  }, [image, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims])
 
-  // Convert client coordinates to image coordinates
+  // Convert client coordinates to rotated image coordinates
   const clientToImage = useCallback((clientX, clientY) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
@@ -195,8 +203,8 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
           y: dragStart.startY + dy,
           radius: circle.radius,
         },
-        image.width,
-        image.height
+        rotatedDims.width,
+        rotatedDims.height
       )
       onCircleChange(newCircle)
     } else if (dragging === 'edge') {
@@ -204,12 +212,12 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
 
       const newCircle = constrainCircle(
         { ...circle, radius: dist },
-        image.width,
-        image.height
+        rotatedDims.width,
+        rotatedDims.height
       )
       onCircleChange(newCircle)
     }
-  }, [dragging, dragStart, clientToImage, circle, image, onCircleChange])
+  }, [dragging, dragStart, clientToImage, circle, rotatedDims, onCircleChange])
 
   // Handle pointer end
   const handlePointerEnd = useCallback(() => {

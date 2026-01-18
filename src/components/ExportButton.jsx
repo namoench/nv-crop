@@ -6,6 +6,7 @@ export default function ExportButton({
   // Single mode props
   image,
   circle,
+  rotation = 0,
   // Dual mode props
   image1,
   image2,
@@ -13,6 +14,8 @@ export default function ExportButton({
   circle2,
   sharedRadius,
   layout,
+  rotation1 = 0,
+  rotation2 = 0,
   // Shared props
   edgeStyle,
   phosphorColor,
@@ -32,9 +35,9 @@ export default function ExportButton({
         const canvas = document.createElement('canvas')
 
         if (mode === 'single') {
-          renderCroppedImage(canvas, image, circle, edgeStyle, phosphorColor)
+          renderCroppedImage(canvas, image, circle, edgeStyle, phosphorColor, rotation)
         } else {
-          renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor)
+          renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1, rotation2)
         }
 
         const suffix = mode === 'dual' ? '-dual' : ''
@@ -46,7 +49,7 @@ export default function ExportButton({
         setIsExporting(false)
       }
     }, 50)
-  }, [mode, image, circle, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, filename, isExporting])
+  }, [mode, image, circle, rotation, image1, image2, circle1, circle2, sharedRadius, layout, rotation1, rotation2, edgeStyle, phosphorColor, filename, isExporting])
 
   const isDisabled = mode === 'single' ? !image : (!image1 || !image2)
 

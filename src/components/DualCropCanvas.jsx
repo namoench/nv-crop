@@ -1,15 +1,24 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 16
 const HANDLE_HIT_RADIUS = 25
 
-function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, sharedRadius, onRadiusChange, label }) {
+function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, sharedRadius, onRadiusChange, label, rotation = 0 }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const [scale, setScale] = useState(1)
   const [dragging, setDragging] = useState(null)
   const [dragStart, setDragStart] = useState(null)
+
+  // Calculate rotated dimensions
+  const rotatedDims = useMemo(() => {
+    const isRotated90or270 = rotation === 90 || rotation === 270
+    return {
+      width: isRotated90or270 ? image.height : image.width,
+      height: isRotated90or270 ? image.width : image.height,
+    }
+  }, [image, rotation])
 
   useEffect(() => {
     if (!containerRef.current || !image) return
@@ -19,8 +28,8 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
       const containerWidth = container.clientWidth
       const containerHeight = container.clientHeight
 
-      const scaleX = containerWidth / image.width
-      const scaleY = containerHeight / image.height
+      const scaleX = containerWidth / rotatedDims.width
+      const scaleY = containerHeight / rotatedDims.height
       const newScale = Math.min(scaleX, scaleY, 1)
 
       setScale(newScale)
@@ -29,20 +38,27 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     updateScale()
     window.addEventListener('resize', updateScale)
     return () => window.removeEventListener('resize', updateScale)
-  }, [image])
+  }, [image, rotatedDims])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !image) return
 
     const ctx = canvas.getContext('2d')
-    const displayWidth = image.width * scale
-    const displayHeight = image.height * scale
+    const displayWidth = rotatedDims.width * scale
+    const displayHeight = rotatedDims.height * scale
 
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    ctx.drawImage(image, 0, 0, displayWidth, displayHeight)
+    // Apply rotation and draw image
+    ctx.save()
+    ctx.translate(displayWidth / 2, displayHeight / 2)
+    ctx.rotate((rotation * Math.PI) / 180)
+    const drawWidth = image.width * scale
+    const drawHeight = image.height * scale
+    ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
+    ctx.restore()
 
     const circleX = circle.x * scale
     const circleY = circle.y * scale
@@ -112,7 +128,7 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius])
+  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius, rotation, rotatedDims])
 
   const clientToImage = useCallback((clientX, clientY) => {
     const canvas = canvasRef.current
@@ -162,18 +178,18 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
       const dy = pos.y - dragStart.y
       const newCircle = constrainCircle(
         { x: dragStart.startX + dx, y: dragStart.startY + dy, radius: sharedRadius },
-        image.width,
-        image.height
+        rotatedDims.width,
+        rotatedDims.height
       )
       onCircleChange({ x: newCircle.x, y: newCircle.y })
     } else if (dragging === 'edge') {
       const dist = Math.sqrt((pos.x - circle.x) ** 2 + (pos.y - circle.y) ** 2)
       const minRadius = 50
-      const maxRadius = Math.min(image.width, image.height) / 2
+      const maxRadius = Math.min(rotatedDims.width, rotatedDims.height) / 2
       const newRadius = Math.max(minRadius, Math.min(maxRadius, dist))
       onRadiusChange(newRadius)
     }
-  }, [dragging, dragStart, clientToImage, circle, sharedRadius, image, onCircleChange, onRadiusChange])
+  }, [dragging, dragStart, clientToImage, circle, sharedRadius, rotatedDims, onCircleChange, onRadiusChange])
 
   const handlePointerEnd = useCallback(() => {
     setDragging(null)
@@ -249,7 +265,9 @@ export default function DualCropCanvas({
   onCircle1Change, onCircle2Change,
   sharedRadius, onRadiusChange,
   edgeStyle, phosphorColor,
-  layout
+  layout,
+  rotation1 = 0,
+  rotation2 = 0
 }) {
   if (!image1 || !image2) return null
 
@@ -264,6 +282,7 @@ export default function DualCropCanvas({
         sharedRadius={sharedRadius}
         onRadiusChange={onRadiusChange}
         label={layout === 'horizontal' ? 'Left' : 'Top'}
+        rotation={rotation1}
       />
       <SingleCanvas
         image={image2.image}
@@ -274,6 +293,7 @@ export default function DualCropCanvas({
         sharedRadius={sharedRadius}
         onRadiusChange={onRadiusChange}
         label={layout === 'horizontal' ? 'Right' : 'Bottom'}
+        rotation={rotation2}
       />
     </div>
   )

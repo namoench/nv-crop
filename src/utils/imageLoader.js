@@ -77,6 +77,75 @@ async function convertHeicToBlob(file) {
 }
 
 /**
+ * Apply rotation to canvas based on EXIF orientation
+ * Returns the properly oriented canvas
+ */
+function applyExifOrientation(canvas, orientation) {
+  if (!orientation || orientation === 1) {
+    return canvas // No rotation needed
+  }
+
+  const ctx = canvas.getContext('2d')
+  const width = canvas.width
+  const height = canvas.height
+
+  // Create a new canvas for the rotated image
+  const rotatedCanvas = document.createElement('canvas')
+  const rotatedCtx = rotatedCanvas.getContext('2d')
+
+  // Set dimensions based on orientation
+  if (orientation >= 5 && orientation <= 8) {
+    // 90 or 270 degree rotation - swap dimensions
+    rotatedCanvas.width = height
+    rotatedCanvas.height = width
+  } else {
+    rotatedCanvas.width = width
+    rotatedCanvas.height = height
+  }
+
+  // Apply transformations based on EXIF orientation
+  switch (orientation) {
+    case 2: // Flip horizontal
+      rotatedCtx.translate(width, 0)
+      rotatedCtx.scale(-1, 1)
+      break
+    case 3: // Rotate 180
+      rotatedCtx.translate(width, height)
+      rotatedCtx.rotate(Math.PI)
+      break
+    case 4: // Flip vertical
+      rotatedCtx.translate(0, height)
+      rotatedCtx.scale(1, -1)
+      break
+    case 5: // Rotate 90 CW + flip horizontal
+      rotatedCtx.translate(height, 0)
+      rotatedCtx.rotate(Math.PI / 2)
+      rotatedCtx.translate(0, -height)
+      rotatedCtx.scale(1, -1)
+      break
+    case 6: // Rotate 90 CW
+      rotatedCtx.translate(height, 0)
+      rotatedCtx.rotate(Math.PI / 2)
+      break
+    case 7: // Rotate 90 CCW + flip horizontal
+      rotatedCtx.translate(0, width)
+      rotatedCtx.rotate(-Math.PI / 2)
+      rotatedCtx.translate(-height, 0)
+      rotatedCtx.scale(1, -1)
+      break
+    case 8: // Rotate 90 CCW
+      rotatedCtx.translate(0, width)
+      rotatedCtx.rotate(-Math.PI / 2)
+      break
+    default:
+      return canvas
+  }
+
+  rotatedCtx.drawImage(canvas, 0, 0)
+  return rotatedCanvas
+}
+
+/**
  * Convert DNG/ProRAW file to a canvas-compatible format
  */
 async function convertDngToBlob(file) {
@@ -96,6 +165,9 @@ async function convertDngToBlob(file) {
       }
     }
 
+    // Get EXIF orientation (tag 274)
+    const orientation = mainIfd.t274 ? mainIfd.t274[0] : 1
+
     // Decode the image data
     UTIF.decodeImage(arrayBuffer, mainIfd)
 
@@ -104,7 +176,7 @@ async function convertDngToBlob(file) {
     const height = mainIfd.height
 
     // Create canvas and draw the image
-    const canvas = document.createElement('canvas')
+    let canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
     const ctx = canvas.getContext('2d')
@@ -112,6 +184,9 @@ async function convertDngToBlob(file) {
     const imageData = ctx.createImageData(width, height)
     imageData.data.set(rgba)
     ctx.putImageData(imageData, 0, 0)
+
+    // Apply EXIF orientation
+    canvas = applyExifOrientation(canvas, orientation)
 
     // Convert to blob
     return new Promise((resolve, reject) => {

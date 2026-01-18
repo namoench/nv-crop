@@ -6,6 +6,12 @@ export default function Controls({
   onPhosphorColorChange,
   layout,
   onLayoutChange,
+  rotation,
+  onRotate,
+  rotation1,
+  rotation2,
+  onRotate1,
+  onRotate2,
   imageInfo,
   onReset,
 }) {
@@ -17,6 +23,89 @@ export default function Controls({
           <div className="flex justify-between text-xs text-gray-500">
             <span>Source: {imageInfo.width} × {imageInfo.height}</span>
             <span>Output: 1080 × 1920</span>
+          </div>
+        )}
+
+        {/* Rotation controls - single mode */}
+        {mode === 'single' && onRotate && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400 w-12">Rotate:</span>
+            <div className="flex gap-2 flex-1">
+              <button
+                type="button"
+                onClick={() => onRotate('left')}
+                className="flex-1 py-2 px-3 rounded-lg bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
+                </svg>
+                90° Left
+              </button>
+              <button
+                type="button"
+                onClick={() => onRotate('right')}
+                className="flex-1 py-2 px-3 rounded-lg bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: 'scaleX(-1)' }}>
+                  <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
+                </svg>
+                90° Right
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Rotation controls - dual mode */}
+        {mode === 'dual' && (onRotate1 || onRotate2) && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400 w-12">Rotate:</span>
+            <div className="flex gap-2 flex-1">
+              <button
+                type="button"
+                onClick={() => onRotate1('left')}
+                className="flex-1 py-2 px-2 rounded-lg bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 transition-all flex items-center justify-center gap-1 text-xs"
+                title="Rotate image 1 left"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
+                </svg>
+                1
+              </button>
+              <button
+                type="button"
+                onClick={() => onRotate1('right')}
+                className="flex-1 py-2 px-2 rounded-lg bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 transition-all flex items-center justify-center gap-1 text-xs"
+                title="Rotate image 1 right"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: 'scaleX(-1)' }}>
+                  <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
+                </svg>
+                1
+              </button>
+              <div className="w-px bg-gray-700" />
+              <button
+                type="button"
+                onClick={() => onRotate2('left')}
+                className="flex-1 py-2 px-2 rounded-lg bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 transition-all flex items-center justify-center gap-1 text-xs"
+                title="Rotate image 2 left"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
+                </svg>
+                2
+              </button>
+              <button
+                type="button"
+                onClick={() => onRotate2('right')}
+                className="flex-1 py-2 px-2 rounded-lg bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 transition-all flex items-center justify-center gap-1 text-xs"
+                title="Rotate image 2 right"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: 'scaleX(-1)' }}>
+                  <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
+                </svg>
+                2
+              </button>
+            </div>
           </div>
         )}
 

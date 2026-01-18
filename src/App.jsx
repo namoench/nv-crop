@@ -16,6 +16,7 @@ export default function App() {
   // Single mode state
   const [imageData, setImageData] = useState(null)
   const [circle, setCircle] = useState(null)
+  const [rotation, setRotation] = useState(0)
 
   // Dual mode state
   const [image1, setImage1] = useState(null)
@@ -24,6 +25,8 @@ export default function App() {
   const [circle2, setCircle2] = useState(null)
   const [sharedRadius, setSharedRadius] = useState(200)
   const [layout, setLayout] = useState('vertical')
+  const [rotation1, setRotation1] = useState(0)
+  const [rotation2, setRotation2] = useState(0)
 
   // Shared state
   const [edgeStyle, setEdgeStyle] = useState('hard')
@@ -36,9 +39,33 @@ export default function App() {
     }
     setImageData(data)
     setCircle(getInitialCircle(data.width, data.height))
+    setRotation(0)
     setEdgeStyle('hard')
     setPhosphorColor('green')
   }, [imageData])
+
+  // Rotation handler for single mode
+  const handleRotate = useCallback((direction) => {
+    setRotation(prev => {
+      const delta = direction === 'left' ? -90 : 90
+      return (prev + delta + 360) % 360
+    })
+  }, [])
+
+  // Rotation handlers for dual mode
+  const handleRotate1 = useCallback((direction) => {
+    setRotation1(prev => {
+      const delta = direction === 'left' ? -90 : 90
+      return (prev + delta + 360) % 360
+    })
+  }, [])
+
+  const handleRotate2 = useCallback((direction) => {
+    setRotation2(prev => {
+      const delta = direction === 'left' ? -90 : 90
+      return (prev + delta + 360) % 360
+    })
+  }, [])
 
   // Dual mode handlers
   const handleDualImagesLoaded = useCallback((img1, img2) => {
@@ -54,10 +81,12 @@ export default function App() {
       const initial = getInitialCircle(img1.width, img1.height)
       setCircle1({ x: initial.x, y: initial.y })
       setSharedRadius(initial.radius)
+      setRotation1(0)
     }
     if (img2 && (!circle2 || img2 !== image2)) {
       const initial = getInitialCircle(img2.width, img2.height)
       setCircle2({ x: initial.x, y: initial.y })
+      setRotation2(0)
     }
   }, [image1, image2, circle1, circle2])
 
@@ -80,6 +109,7 @@ export default function App() {
       if (imageData?.url) revokeImageUrl(imageData.url)
       setImageData(null)
       setCircle(null)
+      setRotation(0)
     } else {
       if (image1?.url) revokeImageUrl(image1.url)
       if (image2?.url) revokeImageUrl(image2.url)
@@ -88,6 +118,8 @@ export default function App() {
       setCircle1(null)
       setCircle2(null)
       setSharedRadius(200)
+      setRotation1(0)
+      setRotation2(0)
     }
     setEdgeStyle('hard')
     setPhosphorColor('green')
@@ -135,6 +167,7 @@ export default function App() {
                     onCircleChange={setCircle}
                     edgeStyle={edgeStyle}
                     phosphorColor={phosphorColor}
+                    rotation={rotation}
                   />
                 </div>
 
@@ -144,6 +177,8 @@ export default function App() {
                   onEdgeStyleChange={setEdgeStyle}
                   phosphorColor={phosphorColor}
                   onPhosphorColorChange={setPhosphorColor}
+                  rotation={rotation}
+                  onRotate={handleRotate}
                   imageInfo={{ width: imageData.width, height: imageData.height }}
                   onReset={handleReset}
                 />
@@ -156,6 +191,7 @@ export default function App() {
                       circle={circle}
                       edgeStyle={edgeStyle}
                       phosphorColor={phosphorColor}
+                      rotation={rotation}
                       filename={imageData.originalName}
                     />
                   </div>
@@ -190,6 +226,8 @@ export default function App() {
                   edgeStyle={edgeStyle}
                   phosphorColor={phosphorColor}
                   layout={layout}
+                  rotation1={rotation1}
+                  rotation2={rotation2}
                 />
 
                 <Controls
@@ -200,6 +238,10 @@ export default function App() {
                   onPhosphorColorChange={setPhosphorColor}
                   layout={layout}
                   onLayoutChange={setLayout}
+                  rotation1={rotation1}
+                  rotation2={rotation2}
+                  onRotate1={handleRotate1}
+                  onRotate2={handleRotate2}
                   onReset={handleReset}
                 />
 
@@ -215,6 +257,8 @@ export default function App() {
                       layout={layout}
                       edgeStyle={edgeStyle}
                       phosphorColor={phosphorColor}
+                      rotation1={rotation1}
+                      rotation2={rotation2}
                       filename={image1.originalName}
                     />
                   </div>
