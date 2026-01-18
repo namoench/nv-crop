@@ -1,19 +1,65 @@
 export default function Controls({
+  mode,
   edgeStyle,
   onEdgeStyleChange,
   phosphorColor,
   onPhosphorColorChange,
+  layout,
+  onLayoutChange,
   imageInfo,
   onReset,
 }) {
   return (
     <div className="w-full px-4 py-3 bg-nv-gray/80 border-t border-gray-800">
       <div className="max-w-lg mx-auto space-y-3">
-        {/* Image dimensions */}
-        {imageInfo && (
+        {/* Image dimensions - only show for single mode */}
+        {imageInfo && mode === 'single' && (
           <div className="flex justify-between text-xs text-gray-500">
             <span>Source: {imageInfo.width} × {imageInfo.height}</span>
             <span>Output: 1080 × 1920</span>
+          </div>
+        )}
+
+        {/* Layout toggle - only for dual mode */}
+        {mode === 'dual' && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400 w-12">Layout:</span>
+            <div className="flex bg-nv-dark rounded-lg p-1 flex-1">
+              <button
+                type="button"
+                onClick={() => onLayoutChange('vertical')}
+                className={`
+                  flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
+                  ${layout === 'vertical'
+                    ? 'bg-gray-700 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                  }
+                `}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="7" r="5" />
+                  <circle cx="12" cy="17" r="5" />
+                </svg>
+                Stack
+              </button>
+              <button
+                type="button"
+                onClick={() => onLayoutChange('horizontal')}
+                className={`
+                  flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
+                  ${layout === 'horizontal'
+                    ? 'bg-gray-700 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                  }
+                `}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="7" cy="12" r="5" />
+                  <circle cx="17" cy="12" r="5" />
+                </svg>
+                Side
+              </button>
+            </div>
           </div>
         )}
 

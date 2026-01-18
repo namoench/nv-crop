@@ -1,20 +1,44 @@
 import { useCallback, useState } from 'react'
-import { renderCroppedImage, exportCanvas } from '../utils/canvasUtils'
+import { renderCroppedImage, renderDualCroppedImage, exportCanvas } from '../utils/canvasUtils'
 
-export default function ExportButton({ image, circle, edgeStyle, phosphorColor, filename }) {
+export default function ExportButton({
+  mode = 'single',
+  // Single mode props
+  image,
+  circle,
+  // Dual mode props
+  image1,
+  image2,
+  circle1,
+  circle2,
+  sharedRadius,
+  layout,
+  // Shared props
+  edgeStyle,
+  phosphorColor,
+  filename
+}) {
   const [isExporting, setIsExporting] = useState(false)
 
   const handleExport = useCallback(() => {
-    if (!image || isExporting) return
+    if (isExporting) return
+    if (mode === 'single' && !image) return
+    if (mode === 'dual' && (!image1 || !image2)) return
 
     setIsExporting(true)
 
-    // Use setTimeout to allow UI to update
     setTimeout(() => {
       try {
         const canvas = document.createElement('canvas')
-        renderCroppedImage(canvas, image, circle, edgeStyle, phosphorColor)
-        exportCanvas(canvas, filename, 'png')
+
+        if (mode === 'single') {
+          renderCroppedImage(canvas, image, circle, edgeStyle, phosphorColor)
+        } else {
+          renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor)
+        }
+
+        const suffix = mode === 'dual' ? '-dual' : ''
+        exportCanvas(canvas, `${filename}${suffix}`, 'png')
       } catch (error) {
         console.error('Export failed:', error)
         alert('Failed to export image. Please try again.')
@@ -22,17 +46,19 @@ export default function ExportButton({ image, circle, edgeStyle, phosphorColor, 
         setIsExporting(false)
       }
     }, 50)
-  }, [image, circle, edgeStyle, phosphorColor, filename, isExporting])
+  }, [mode, image, circle, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, filename, isExporting])
+
+  const isDisabled = mode === 'single' ? !image : (!image1 || !image2)
 
   return (
     <button
       type="button"
       onClick={handleExport}
-      disabled={!image || isExporting}
+      disabled={isDisabled || isExporting}
       className={`
         w-full py-4 px-6 rounded-xl font-semibold text-lg
         transition-all duration-200
-        ${image && !isExporting
+        ${!isDisabled && !isExporting
           ? 'bg-nv-green text-black hover:bg-green-400 active:scale-[0.98]'
           : 'bg-gray-700 text-gray-500 cursor-not-allowed'
         }

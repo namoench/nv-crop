@@ -145,6 +145,140 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
 }
 
 /**
+ * Render a single circle crop to a specific position on canvas
+ * Helper for dual render
+ */
+function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor) {
+  const sourceRadius = radius
+  const sourceX = circle.x - sourceRadius
+  const sourceY = circle.y - sourceRadius
+  const sourceSize = sourceRadius * 2
+  const outputSize = outputRadius * 2
+  const outputX = centerX - outputRadius
+  const outputY = centerY - outputRadius
+
+  ctx.save()
+
+  if (edgeStyle === 'feathered') {
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
+    ctx.clip()
+
+    ctx.drawImage(
+      image,
+      sourceX, sourceY, sourceSize, sourceSize,
+      outputX, outputY, outputSize, outputSize
+    )
+
+    ctx.restore()
+    ctx.save()
+
+    const glowWidth = outputRadius * FEATHER_PERCENT
+    const innerGlowRadius = outputRadius - glowWidth
+    const glowGradient = ctx.createRadialGradient(
+      centerX, centerY, innerGlowRadius,
+      centerX, centerY, outputRadius
+    )
+
+    if (phosphorColor === 'green') {
+      glowGradient.addColorStop(0, 'rgba(0, 255, 0, 0)')
+      glowGradient.addColorStop(0.3, 'rgba(0, 255, 0, 0.08)')
+      glowGradient.addColorStop(0.7, 'rgba(0, 200, 0, 0.15)')
+      glowGradient.addColorStop(1, 'rgba(0, 150, 0, 0.05)')
+    } else {
+      glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0)')
+      glowGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.06)')
+      glowGradient.addColorStop(0.7, 'rgba(240, 240, 230, 0.12)')
+      glowGradient.addColorStop(1, 'rgba(220, 220, 210, 0.04)')
+    }
+
+    ctx.globalCompositeOperation = 'screen'
+    ctx.fillStyle = glowGradient
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.restore()
+    ctx.save()
+
+    const fadeGradient = ctx.createRadialGradient(
+      centerX, centerY, outputRadius - glowWidth * 0.5,
+      centerX, centerY, outputRadius
+    )
+    fadeGradient.addColorStop(0, 'rgba(0, 0, 0, 0)')
+    fadeGradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)')
+
+    ctx.globalCompositeOperation = 'source-atop'
+    ctx.fillStyle = fadeGradient
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
+    ctx.fill()
+
+  } else {
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
+    ctx.clip()
+
+    ctx.drawImage(
+      image,
+      sourceX, sourceY, sourceSize, sourceSize,
+      outputX, outputY, outputSize, outputSize
+    )
+  }
+
+  ctx.restore()
+}
+
+/**
+ * Render dual circular crops onto a canvas
+ * @param {HTMLCanvasElement} canvas - The canvas to draw on
+ * @param {HTMLImageElement} image1 - First source image
+ * @param {HTMLImageElement} image2 - Second source image
+ * @param {Object} circle1 - First circle {x, y}
+ * @param {Object} circle2 - Second circle {x, y}
+ * @param {number} sharedRadius - Shared radius for both circles
+ * @param {string} layout - 'vertical' or 'horizontal'
+ * @param {string} edgeStyle - 'hard' or 'feathered'
+ * @param {string} phosphorColor - 'green' or 'white'
+ */
+export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor) {
+  const ctx = canvas.getContext('2d')
+  canvas.width = OUTPUT_WIDTH
+  canvas.height = OUTPUT_HEIGHT
+
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+
+  let outputRadius, center1X, center1Y, center2X, center2Y
+
+  if (layout === 'vertical') {
+    // Stacked vertically - circles sized to fit with margin
+    const maxDiameter = Math.min(OUTPUT_WIDTH * 0.85, (OUTPUT_HEIGHT - 60) / 2)
+    outputRadius = maxDiameter / 2
+
+    center1X = OUTPUT_WIDTH / 2
+    center1Y = OUTPUT_HEIGHT / 4 + 15
+    center2X = OUTPUT_WIDTH / 2
+    center2Y = (OUTPUT_HEIGHT * 3) / 4 - 15
+  } else {
+    // Side by side horizontally
+    const maxDiameter = Math.min((OUTPUT_WIDTH - 40) / 2, OUTPUT_HEIGHT * 0.45)
+    outputRadius = maxDiameter / 2
+
+    center1X = OUTPUT_WIDTH / 4 + 5
+    center1Y = OUTPUT_HEIGHT / 2
+    center2X = (OUTPUT_WIDTH * 3) / 4 - 5
+    center2Y = OUTPUT_HEIGHT / 2
+  }
+
+  // Render both circles
+  renderCircleToCanvas(ctx, image1, circle1, sharedRadius, center1X, center1Y, outputRadius, edgeStyle, phosphorColor)
+  renderCircleToCanvas(ctx, image2, circle2, sharedRadius, center2X, center2Y, outputRadius, edgeStyle, phosphorColor)
+
+  return canvas
+}
+
+/**
  * Export canvas as downloadable image
  * @param {HTMLCanvasElement} canvas - The canvas to export
  * @param {string} filename - Base filename (without extension)
