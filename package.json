@@ -12,7 +12,8 @@
   "dependencies": {
     "heic2any": "^0.0.4",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "utif2": "^4.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

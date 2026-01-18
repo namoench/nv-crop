@@ -10,7 +10,9 @@
       "Bash(git commit:*)",
       "Bash(gh repo create:*)",
       "Bash(npm run deploy:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(git push)",
+      "Bash(npm install:*)"
     ]
   },
   "outputStyle": "default"

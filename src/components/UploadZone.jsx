@@ -94,7 +94,7 @@ export default function UploadZone({ onImageLoaded, disabled }) {
         <input
           ref={inputRef}
           type="file"
-          accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
+          accept=".jpg,.jpeg,.png,.heic,.heif,.dng,image/jpeg,image/png,image/heic,image/heif,image/dng,image/x-adobe-dng"
           onChange={handleInputChange}
           className="hidden"
         />
@@ -124,7 +124,7 @@ export default function UploadZone({ onImageLoaded, disabled }) {
               {isDragging ? 'Drop image here' : 'Drop image or tap to upload'}
             </p>
             <p className="text-gray-500 text-sm">
-              JPG, PNG, HEIC, HEIF
+              JPG, PNG, HEIC, DNG
             </p>
           </>
         )}

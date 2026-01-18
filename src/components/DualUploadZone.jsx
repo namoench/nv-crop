@@ -78,7 +78,7 @@ function UploadBox({ label, imageData, onImageLoaded, isLoading, loadingMessage,
         <input
           ref={inputRef}
           type="file"
-          accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
+          accept=".jpg,.jpeg,.png,.heic,.heif,.dng,image/jpeg,image/png,image/heic,image/heif,image/dng,image/x-adobe-dng"
           onChange={handleInputChange}
           className="hidden"
         />
