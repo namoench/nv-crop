@@ -344,7 +344,7 @@ export async function processVideo(
 
   onProgress?.(55, 'Encoding video...')
 
-  // Encode frames to video
+  // Encode frames to video (MP4 with H.264 for iOS compatibility)
   const encodeArgs = [
     '-framerate', String(frameRate),
     '-i', 'frame_%05d.png',
@@ -355,24 +355,24 @@ export async function processVideo(
   }
 
   encodeArgs.push(
-    '-c:v', 'libvpx-vp9',
-    '-crf', '30',
-    '-b:v', '0',
-    '-pix_fmt', 'yuva420p',
+    '-c:v', 'libx264',
+    '-preset', 'medium',
+    '-crf', '23',
+    '-pix_fmt', 'yuv420p',
   )
 
   if (hasAudio) {
-    encodeArgs.push('-c:a', 'copy')
+    encodeArgs.push('-c:a', 'aac', '-b:a', '128k')
   }
 
-  encodeArgs.push('-y', 'output.webm')
+  encodeArgs.push('-y', 'output.mp4')
 
   await ff.exec(encodeArgs)
 
   onProgress?.(90, 'Finalizing...')
 
   // Read output file
-  const outputData = await ff.readFile('output.webm')
+  const outputData = await ff.readFile('output.mp4')
 
   // Clean up FFmpeg filesystem
   try {
@@ -383,13 +383,13 @@ export async function processVideo(
     for (let i = 0; i < totalFrames; i++) {
       await ff.deleteFile(`frame_${String(i).padStart(5, '0')}.png`)
     }
-    await ff.deleteFile('output.webm')
+    await ff.deleteFile('output.mp4')
   } catch (e) {
     // Ignore cleanup errors
   }
 
   // Create Blob URL for download
-  const blob = new Blob([outputData.buffer], { type: 'video/webm' })
+  const blob = new Blob([outputData.buffer], { type: 'video/mp4' })
   const url = URL.createObjectURL(blob)
 
   onProgress?.(100, 'Complete!')
@@ -403,7 +403,7 @@ export async function processVideo(
 export function downloadVideo(url, filename) {
   const link = document.createElement('a')
   link.href = url
-  link.download = `${filename}-nvcrop.webm`
+  link.download = `${filename}-nvcrop.mp4`
   link.click()
 }
 
