@@ -28,6 +28,19 @@ export default function ModeSelector({ mode, onModeChange }) {
         >
           Dual
         </button>
+        <button
+          type="button"
+          onClick={() => onModeChange('video')}
+          className={`
+            flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all
+            ${mode === 'video'
+              ? 'bg-gray-700 text-white'
+              : 'text-gray-500 hover:text-gray-300'
+            }
+          `}
+        >
+          Video
+        </button>
       </div>
     </div>
   )
