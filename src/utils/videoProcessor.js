@@ -1,8 +1,7 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import {
-  OUTPUT_WIDTH,
-  OUTPUT_HEIGHT,
+  getOutputDimensions,
   MAX_CIRCLE_PERCENT,
   FEATHER_PERCENT,
 } from './canvasUtils'
@@ -106,17 +105,19 @@ function renderCroppedFrame(
   circle,
   edgeStyle,
   phosphorColor,
-  rotation
+  rotation,
+  outputWidth,
+  outputHeight
 ) {
   const outputCanvas = document.createElement('canvas')
-  outputCanvas.width = OUTPUT_WIDTH
-  outputCanvas.height = OUTPUT_HEIGHT
+  outputCanvas.width = outputWidth
+  outputCanvas.height = outputHeight
 
   const ctx = outputCanvas.getContext('2d')
 
   // Fill black background
   ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+  ctx.fillRect(0, 0, outputWidth, outputHeight)
 
   // Apply rotation if needed
   let sourceCanvas = frameCanvas
@@ -125,13 +126,14 @@ function renderCroppedFrame(
   }
 
   // Calculate output circle size
-  const maxOutputRadius = (OUTPUT_WIDTH * MAX_CIRCLE_PERCENT) / 2
+  const smallerDim = Math.min(outputWidth, outputHeight)
+  const maxOutputRadius = (smallerDim * MAX_CIRCLE_PERCENT) / 2
   const sourceRadius = circle.radius
   const outputRadius = maxOutputRadius
   const scale = outputRadius / sourceRadius
 
-  const outputCenterX = OUTPUT_WIDTH / 2
-  const outputCenterY = OUTPUT_HEIGHT / 2
+  const outputCenterX = outputWidth / 2
+  const outputCenterY = outputHeight / 2
 
   // Source region to capture
   const sourceX = circle.x - sourceRadius
@@ -248,6 +250,7 @@ function renderCroppedFrame(
  * @param {string} edgeStyle - 'hard' or 'feathered'
  * @param {string} phosphorColor - 'green' or 'white'
  * @param {number} rotation - Rotation in degrees
+ * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  * @param {function} onProgress - Progress callback (0-100, message)
  * @returns {Promise<string>} Blob URL of processed video
  */
@@ -257,9 +260,11 @@ export async function processVideo(
   edgeStyle,
   phosphorColor,
   rotation,
+  aspectRatio,
   onProgress
 ) {
   const { video, file, duration, fps } = videoData
+  const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
 
   // Initialize FFmpeg
   const ff = await initFFmpeg(onProgress)
@@ -312,7 +317,9 @@ export async function processVideo(
       circle,
       edgeStyle,
       phosphorColor,
-      rotation
+      rotation,
+      outputWidth,
+      outputHeight
     )
 
     // Convert to PNG and write to FFmpeg

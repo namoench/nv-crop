@@ -1,8 +1,23 @@
 /**
- * Output dimensions for 9:16 aspect ratio
+ * Aspect ratio presets
+ */
+export const ASPECT_RATIOS = {
+  '9:16': { width: 1080, height: 1920, label: '9:16 Story' },
+  '1:1': { width: 1080, height: 1080, label: '1:1 Square' },
+}
+
+/**
+ * Default output dimensions (for backwards compatibility)
  */
 export const OUTPUT_WIDTH = 1080
 export const OUTPUT_HEIGHT = 1920
+
+/**
+ * Get dimensions for an aspect ratio
+ */
+export function getOutputDimensions(aspectRatio = '9:16') {
+  return ASPECT_RATIOS[aspectRatio] || ASPECT_RATIOS['9:16']
+}
 
 /**
  * Maximum circle diameter as percentage of output width
@@ -52,22 +67,25 @@ function drawRotatedImage(image, rotation) {
  * @param {string} edgeStyle - 'hard' or 'feathered'
  * @param {string} phosphorColor - 'green' or 'white'
  * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
+ * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  */
-export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0) {
+export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0, aspectRatio = '9:16') {
+  const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
   const ctx = canvas.getContext('2d')
-  canvas.width = OUTPUT_WIDTH
-  canvas.height = OUTPUT_HEIGHT
+  canvas.width = outputWidth
+  canvas.height = outputHeight
 
   // Fill with black background
   ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+  ctx.fillRect(0, 0, outputWidth, outputHeight)
 
   // Get rotated source image if rotation is applied
   const sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
 
   // Calculate the output circle size
-  // Scale the circle proportionally, but cap at MAX_CIRCLE_PERCENT of width
-  const maxOutputRadius = (OUTPUT_WIDTH * MAX_CIRCLE_PERCENT) / 2
+  // Scale the circle proportionally, but cap at MAX_CIRCLE_PERCENT of smaller dimension
+  const smallerDim = Math.min(outputWidth, outputHeight)
+  const maxOutputRadius = (smallerDim * MAX_CIRCLE_PERCENT) / 2
 
   // Calculate how much of the source image we're capturing
   // The circle.radius is in source image coordinates
@@ -79,8 +97,8 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
   const scale = outputRadius / sourceRadius
 
   // Center of output
-  const outputCenterX = OUTPUT_WIDTH / 2
-  const outputCenterY = OUTPUT_HEIGHT / 2
+  const outputCenterX = outputWidth / 2
+  const outputCenterY = outputHeight / 2
 
   // Source region to capture (centered on circle)
   const sourceX = circle.x - sourceRadius
@@ -279,35 +297,37 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
  * @param {string} phosphorColor - 'green' or 'white'
  * @param {number} rotation1 - Rotation for image1 in degrees (0, 90, 180, 270)
  * @param {number} rotation2 - Rotation for image2 in degrees (0, 90, 180, 270)
+ * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  */
-export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1 = 0, rotation2 = 0) {
+export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1 = 0, rotation2 = 0, aspectRatio = '9:16') {
+  const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
   const ctx = canvas.getContext('2d')
-  canvas.width = OUTPUT_WIDTH
-  canvas.height = OUTPUT_HEIGHT
+  canvas.width = outputWidth
+  canvas.height = outputHeight
 
   ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+  ctx.fillRect(0, 0, outputWidth, outputHeight)
 
   let outputRadius, center1X, center1Y, center2X, center2Y
 
   if (layout === 'vertical') {
     // Stacked vertically - circles sized to fit with margin
-    const maxDiameter = Math.min(OUTPUT_WIDTH * 0.85, (OUTPUT_HEIGHT - 60) / 2)
+    const maxDiameter = Math.min(outputWidth * 0.85, (outputHeight - 60) / 2)
     outputRadius = maxDiameter / 2
 
-    center1X = OUTPUT_WIDTH / 2
-    center1Y = OUTPUT_HEIGHT / 4 + 15
-    center2X = OUTPUT_WIDTH / 2
-    center2Y = (OUTPUT_HEIGHT * 3) / 4 - 15
+    center1X = outputWidth / 2
+    center1Y = outputHeight / 4 + 15
+    center2X = outputWidth / 2
+    center2Y = (outputHeight * 3) / 4 - 15
   } else {
     // Side by side horizontally
-    const maxDiameter = Math.min((OUTPUT_WIDTH - 40) / 2, OUTPUT_HEIGHT * 0.45)
+    const maxDiameter = Math.min((outputWidth - 40) / 2, outputHeight * 0.45)
     outputRadius = maxDiameter / 2
 
-    center1X = OUTPUT_WIDTH / 4 + 5
-    center1Y = OUTPUT_HEIGHT / 2
-    center2X = (OUTPUT_WIDTH * 3) / 4 - 5
-    center2Y = OUTPUT_HEIGHT / 2
+    center1X = outputWidth / 4 + 5
+    center1Y = outputHeight / 2
+    center2X = (outputWidth * 3) / 4 - 5
+    center2Y = outputHeight / 2
   }
 
   // Render both circles with their respective rotations

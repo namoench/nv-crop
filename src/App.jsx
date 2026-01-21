@@ -41,6 +41,7 @@ export default function App() {
   // Shared state
   const [edgeStyle, setEdgeStyle] = useState('hard')
   const [phosphorColor, setPhosphorColor] = useState('green')
+  const [aspectRatio, setAspectRatio] = useState('9:16')
 
   // Single mode handlers
   const handleImageLoaded = useCallback((data) => {
@@ -244,6 +245,8 @@ export default function App() {
                   onEdgeStyleChange={setEdgeStyle}
                   phosphorColor={phosphorColor}
                   onPhosphorColorChange={setPhosphorColor}
+                  aspectRatio={aspectRatio}
+                  onAspectRatioChange={setAspectRatio}
                   rotation={rotation}
                   onRotate={handleRotate}
                   imageInfo={{ width: imageData.width, height: imageData.height }}
@@ -259,6 +262,7 @@ export default function App() {
                       edgeStyle={edgeStyle}
                       phosphorColor={phosphorColor}
                       rotation={rotation}
+                      aspectRatio={aspectRatio}
                       filename={imageData.originalName}
                     />
                   </div>
@@ -303,6 +307,8 @@ export default function App() {
                   onEdgeStyleChange={setEdgeStyle}
                   phosphorColor={phosphorColor}
                   onPhosphorColorChange={setPhosphorColor}
+                  aspectRatio={aspectRatio}
+                  onAspectRatioChange={setAspectRatio}
                   layout={layout}
                   onLayoutChange={setLayout}
                   rotation1={rotation1}
@@ -326,6 +332,7 @@ export default function App() {
                       phosphorColor={phosphorColor}
                       rotation1={rotation1}
                       rotation2={rotation2}
+                      aspectRatio={aspectRatio}
                       filename={image1.originalName}
                     />
                   </div>
@@ -361,6 +368,8 @@ export default function App() {
                   onEdgeStyleChange={setEdgeStyle}
                   phosphorColor={phosphorColor}
                   onPhosphorColorChange={setPhosphorColor}
+                  aspectRatio={aspectRatio}
+                  onAspectRatioChange={setAspectRatio}
                   rotation={videoRotation}
                   onRotate={handleVideoRotate}
                   imageInfo={{ width: videoData.width, height: videoData.height }}
@@ -375,6 +384,7 @@ export default function App() {
                       edgeStyle={edgeStyle}
                       phosphorColor={phosphorColor}
                       rotation={videoRotation}
+                      aspectRatio={aspectRatio}
                     />
                   </div>
                 </div>

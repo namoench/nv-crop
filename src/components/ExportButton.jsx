@@ -19,6 +19,7 @@ export default function ExportButton({
   // Shared props
   edgeStyle,
   phosphorColor,
+  aspectRatio = '9:16',
   filename
 }) {
   const [isExporting, setIsExporting] = useState(false)
@@ -35,9 +36,9 @@ export default function ExportButton({
         const canvas = document.createElement('canvas')
 
         if (mode === 'single') {
-          renderCroppedImage(canvas, image, circle, edgeStyle, phosphorColor, rotation)
+          renderCroppedImage(canvas, image, circle, edgeStyle, phosphorColor, rotation, aspectRatio)
         } else {
-          renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1, rotation2)
+          renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1, rotation2, aspectRatio)
         }
 
         const suffix = mode === 'dual' ? '-dual' : ''
@@ -49,7 +50,7 @@ export default function ExportButton({
         setIsExporting(false)
       }
     }, 50)
-  }, [mode, image, circle, rotation, image1, image2, circle1, circle2, sharedRadius, layout, rotation1, rotation2, edgeStyle, phosphorColor, filename, isExporting])
+  }, [mode, image, circle, rotation, image1, image2, circle1, circle2, sharedRadius, layout, rotation1, rotation2, edgeStyle, phosphorColor, aspectRatio, filename, isExporting])
 
   const isDisabled = mode === 'single' ? !image : (!image1 || !image2)
 

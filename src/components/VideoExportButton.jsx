@@ -7,6 +7,7 @@ export default function VideoExportButton({
   edgeStyle,
   phosphorColor,
   rotation = 0,
+  aspectRatio = '9:16',
 }) {
   const [state, setState] = useState('idle') // 'idle' | 'processing' | 'complete' | 'error'
   const [progress, setProgress] = useState(0)
@@ -37,6 +38,7 @@ export default function VideoExportButton({
         edgeStyle,
         phosphorColor,
         rotation,
+        aspectRatio,
         (progressPercent, message) => {
           if (abortRef.current) return
           setProgress(progressPercent)

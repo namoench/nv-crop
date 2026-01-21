@@ -1,9 +1,13 @@
+import { ASPECT_RATIOS } from '../utils/canvasUtils'
+
 export default function Controls({
   mode,
   edgeStyle,
   onEdgeStyleChange,
   phosphorColor,
   onPhosphorColorChange,
+  aspectRatio,
+  onAspectRatioChange,
   layout,
   onLayoutChange,
   rotation,
@@ -15,14 +19,15 @@ export default function Controls({
   imageInfo,
   onReset,
 }) {
+  const currentAspect = ASPECT_RATIOS[aspectRatio] || ASPECT_RATIOS['9:16']
   return (
     <div className="w-full px-4 py-3 bg-nv-gray/80 border-t border-gray-800">
       <div className="max-w-lg mx-auto space-y-3">
-        {/* Image dimensions - only show for single mode */}
-        {imageInfo && mode === 'single' && (
+        {/* Image dimensions */}
+        {imageInfo && (
           <div className="flex justify-between text-xs text-gray-500">
             <span>Source: {imageInfo.width} × {imageInfo.height}</span>
-            <span>Output: 1080 × 1920</span>
+            <span>Output: {currentAspect.width} × {currentAspect.height}</span>
           </div>
         )}
 
@@ -147,6 +152,41 @@ export default function Controls({
                   <circle cx="17" cy="12" r="5" />
                 </svg>
                 Side
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Aspect ratio toggle */}
+        {onAspectRatioChange && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400 w-12">Output:</span>
+            <div className="flex bg-nv-dark rounded-lg p-1 flex-1">
+              <button
+                type="button"
+                onClick={() => onAspectRatioChange('9:16')}
+                className={`
+                  flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all
+                  ${aspectRatio === '9:16'
+                    ? 'bg-gray-700 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                  }
+                `}
+              >
+                9:16 Story
+              </button>
+              <button
+                type="button"
+                onClick={() => onAspectRatioChange('1:1')}
+                className={`
+                  flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all
+                  ${aspectRatio === '1:1'
+                    ? 'bg-gray-700 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                  }
+                `}
+              >
+                1:1 Square
               </button>
             </div>
           </div>
