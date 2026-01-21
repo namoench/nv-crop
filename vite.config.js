@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/nv-crop/',
+  // Use /nv-crop/ for GitHub Pages, / for Vercel
+  base: process.env.GITHUB_ACTIONS ? '/nv-crop/' : '/',
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
