@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import ModeSelector from './components/ModeSelector'
 import UploadZone from './components/UploadZone'
 import DualUploadZone from './components/DualUploadZone'
@@ -382,6 +383,7 @@ export default function App() {
           </>
         )}
       </main>
+      <Analytics />
     </div>
   )
 }
