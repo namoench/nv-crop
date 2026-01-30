@@ -266,7 +266,7 @@ export default function Controls({
 
         {/* Color grading sliders */}
         {colorGrading && onColorGradingChange && (
-          <div className="space-y-2 pt-2 border-t border-gray-700">
+          <div className="space-y-3 pt-2 border-t border-gray-700">
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-400 w-20">Brightness</span>
               <input
@@ -276,12 +276,16 @@ export default function Controls({
                 step="0.01"
                 value={colorGrading.brightness}
                 onChange={(e) => onColorGradingChange({ ...colorGrading, brightness: parseFloat(e.target.value) })}
-                className="flex-1 h-2 bg-gray-700 rounded-full appearance-none cursor-pointer
+                style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
+                className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
                          [&::-webkit-slider-thumb]:appearance-none
-                         [&::-webkit-slider-thumb]:w-4
-                         [&::-webkit-slider-thumb]:h-4
+                         [&::-webkit-slider-thumb]:w-5
+                         [&::-webkit-slider-thumb]:h-5
                          [&::-webkit-slider-thumb]:rounded-full
                          [&::-webkit-slider-thumb]:bg-nv-green
+                         [&::-webkit-slider-thumb]:border-2
+                         [&::-webkit-slider-thumb]:border-white
+                         [&::-webkit-slider-thumb]:shadow-md
                          [&::-webkit-slider-thumb]:cursor-pointer"
               />
               <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.brightness * 100)}%</span>
@@ -295,12 +299,16 @@ export default function Controls({
                 step="0.01"
                 value={colorGrading.contrast}
                 onChange={(e) => onColorGradingChange({ ...colorGrading, contrast: parseFloat(e.target.value) })}
-                className="flex-1 h-2 bg-gray-700 rounded-full appearance-none cursor-pointer
+                style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
+                className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
                          [&::-webkit-slider-thumb]:appearance-none
-                         [&::-webkit-slider-thumb]:w-4
-                         [&::-webkit-slider-thumb]:h-4
+                         [&::-webkit-slider-thumb]:w-5
+                         [&::-webkit-slider-thumb]:h-5
                          [&::-webkit-slider-thumb]:rounded-full
                          [&::-webkit-slider-thumb]:bg-nv-green
+                         [&::-webkit-slider-thumb]:border-2
+                         [&::-webkit-slider-thumb]:border-white
+                         [&::-webkit-slider-thumb]:shadow-md
                          [&::-webkit-slider-thumb]:cursor-pointer"
               />
               <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.contrast * 100)}%</span>
@@ -314,12 +322,16 @@ export default function Controls({
                 step="0.01"
                 value={colorGrading.saturation}
                 onChange={(e) => onColorGradingChange({ ...colorGrading, saturation: parseFloat(e.target.value) })}
-                className="flex-1 h-2 bg-gray-700 rounded-full appearance-none cursor-pointer
+                style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
+                className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
                          [&::-webkit-slider-thumb]:appearance-none
-                         [&::-webkit-slider-thumb]:w-4
-                         [&::-webkit-slider-thumb]:h-4
+                         [&::-webkit-slider-thumb]:w-5
+                         [&::-webkit-slider-thumb]:h-5
                          [&::-webkit-slider-thumb]:rounded-full
                          [&::-webkit-slider-thumb]:bg-nv-green
+                         [&::-webkit-slider-thumb]:border-2
+                         [&::-webkit-slider-thumb]:border-white
+                         [&::-webkit-slider-thumb]:shadow-md
                          [&::-webkit-slider-thumb]:cursor-pointer"
               />
               <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.saturation * 100)}%</span>
