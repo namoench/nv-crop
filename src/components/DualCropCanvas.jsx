@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT, applyColorGrading } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 16
 const HANDLE_HIT_RADIUS = 25
@@ -59,9 +59,6 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     const drawHeight = image.height * scale
     ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
-
-    // Apply color grading using pixel manipulation (works on iOS Safari)
-    applyColorGrading(ctx, displayWidth, displayHeight, colorGrading)
 
     const circleX = circle.x * scale
     const circleY = circle.y * scale
@@ -131,7 +128,7 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius, rotation, rotatedDims, colorGrading])
+  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius, rotation, rotatedDims])
 
   const clientToImage = useCallback((clientX, clientY) => {
     const canvas = canvasRef.current
@@ -244,6 +241,11 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
 
   if (!image) return null
 
+  // Build CSS filter string for preview
+  const cssFilter = colorGrading
+    ? `brightness(${colorGrading.brightness}) contrast(${colorGrading.contrast}) saturate(${colorGrading.saturation})`
+    : 'none'
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <p className="text-xs text-gray-500 text-center mb-1">{label}</p>
@@ -251,7 +253,7 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
         <canvas
           ref={canvasRef}
           className={`touch-canvas no-select ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-          style={{ maxWidth: '100%', maxHeight: '100%' }}
+          style={{ maxWidth: '100%', maxHeight: '100%', filter: cssFilter }}
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}

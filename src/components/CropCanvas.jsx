@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT, applyColorGrading } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20 // Touch-friendly handle size
 const HANDLE_HIT_RADIUS = 30 // Larger hit area for touch
@@ -62,9 +62,6 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     const drawHeight = image.height * scale
     ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
-
-    // Apply color grading using pixel manipulation (works on iOS Safari)
-    applyColorGrading(ctx, displayWidth, displayHeight, colorGrading)
 
     // Draw darkened overlay outside circle
     const circleX = circle.x * scale
@@ -140,7 +137,7 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, colorGrading])
+  }, [image, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims])
 
   // Convert client coordinates to rotated image coordinates
   const clientToImage = useCallback((clientX, clientY) => {
@@ -278,6 +275,11 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
 
   if (!image) return null
 
+  // Build CSS filter string for preview (works reliably on all browsers)
+  const cssFilter = colorGrading
+    ? `brightness(${colorGrading.brightness}) contrast(${colorGrading.contrast}) saturate(${colorGrading.saturation})`
+    : 'none'
+
   return (
     <div
       ref={containerRef}
@@ -289,6 +291,7 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
         style={{
           maxWidth: '100%',
           maxHeight: '100%',
+          filter: cssFilter,
         }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}

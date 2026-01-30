@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT, applyColorGrading } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20
 const HANDLE_HIT_RADIUS = 30
@@ -78,9 +78,6 @@ export default function VideoPreview({
     ctx.drawImage(video, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
 
-    // Apply color grading using pixel manipulation (works on iOS Safari)
-    applyColorGrading(ctx, displayWidth, displayHeight, colorGrading)
-
     // Draw darkened overlay outside circle
     const circleX = circle.x * scale
     const circleY = circle.y * scale
@@ -154,7 +151,7 @@ export default function VideoPreview({
     ctx.arc(circleX, circleY, 6, 0, Math.PI * 2)
     ctx.fill()
     ctx.restore()
-  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, width, height, colorGrading])
+  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, width, height])
 
   // Animation loop for live preview
   useEffect(() => {
@@ -343,6 +340,11 @@ export default function VideoPreview({
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Build CSS filter string for preview
+  const cssFilter = colorGrading
+    ? `brightness(${colorGrading.brightness}) contrast(${colorGrading.contrast}) saturate(${colorGrading.saturation})`
+    : 'none'
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       {/* Canvas preview */}
@@ -356,6 +358,7 @@ export default function VideoPreview({
           style={{
             maxWidth: '100%',
             maxHeight: '100%',
+            filter: cssFilter,
           }}
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}

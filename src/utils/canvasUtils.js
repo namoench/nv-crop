@@ -47,9 +47,6 @@ export function applyColorGrading(ctx, width, height, colorGrading) {
   const imageData = ctx.getImageData(0, 0, width, height)
   const data = imageData.data
 
-  // Debug: log first pixel before
-  console.log('Before:', data[0], data[1], data[2], 'B:', brightness, 'C:', contrast, 'S:', saturation)
-
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i]
     let g = data[i + 1]
@@ -77,9 +74,6 @@ export function applyColorGrading(ctx, width, height, colorGrading) {
     data[i + 1] = Math.round(Math.max(0, Math.min(255, g)))
     data[i + 2] = Math.round(Math.max(0, Math.min(255, b)))
   }
-
-  // Debug: log first pixel after
-  console.log('After:', data[0], data[1], data[2])
 
   ctx.putImageData(imageData, 0, 0)
 }
