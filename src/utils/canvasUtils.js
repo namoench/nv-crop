@@ -47,41 +47,39 @@ export function applyColorGrading(ctx, width, height, colorGrading) {
   const imageData = ctx.getImageData(0, 0, width, height)
   const data = imageData.data
 
-  // Precompute contrast factor
-  const contrastFactor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255))
+  // Debug: log first pixel before
+  console.log('Before:', data[0], data[1], data[2], 'B:', brightness, 'C:', contrast, 'S:', saturation)
 
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i]
     let g = data[i + 1]
     let b = data[i + 2]
 
-    // Apply brightness
-    if (brightness !== 1) {
-      r = r * brightness
-      g = g * brightness
-      b = b * brightness
-    }
+    // Apply brightness (multiply)
+    r = r * brightness
+    g = g * brightness
+    b = b * brightness
 
-    // Apply contrast
-    if (contrast !== 1) {
-      r = contrastFactor * (r - 128) + 128
-      g = contrastFactor * (g - 128) + 128
-      b = contrastFactor * (b - 128) + 128
-    }
+    // Apply contrast (scale around midpoint)
+    // Formula: output = (input - 128) * contrast + 128
+    r = (r - 128) * contrast + 128
+    g = (g - 128) * contrast + 128
+    b = (b - 128) * contrast + 128
 
-    // Apply saturation
-    if (saturation !== 1) {
-      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b
-      r = gray + saturation * (r - gray)
-      g = gray + saturation * (g - gray)
-      b = gray + saturation * (b - gray)
-    }
+    // Apply saturation (interpolate toward grayscale)
+    const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    r = gray + saturation * (r - gray)
+    g = gray + saturation * (g - gray)
+    b = gray + saturation * (b - gray)
 
-    // Clamp values to 0-255
-    data[i] = Math.max(0, Math.min(255, r))
-    data[i + 1] = Math.max(0, Math.min(255, g))
-    data[i + 2] = Math.max(0, Math.min(255, b))
+    // Clamp values to 0-255 and round
+    data[i] = Math.round(Math.max(0, Math.min(255, r)))
+    data[i + 1] = Math.round(Math.max(0, Math.min(255, g)))
+    data[i + 2] = Math.round(Math.max(0, Math.min(255, b)))
   }
+
+  // Debug: log first pixel after
+  console.log('After:', data[0], data[1], data[2])
 
   ctx.putImageData(imageData, 0, 0)
 }
