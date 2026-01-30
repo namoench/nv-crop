@@ -267,6 +267,9 @@ export default function Controls({
         {/* Color grading sliders */}
         {colorGrading && onColorGradingChange && (
           <div className="space-y-3 pt-2 border-t border-gray-700">
+            <div className="text-xs text-yellow-500 mb-2">
+              DEBUG: B={colorGrading.brightness.toFixed(2)} C={colorGrading.contrast.toFixed(2)} S={colorGrading.saturation.toFixed(2)}
+            </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-400 w-20">Brightness</span>
               <input
@@ -275,6 +278,7 @@ export default function Controls({
                 max="1.5"
                 step="0.01"
                 value={colorGrading.brightness}
+                onInput={(e) => onColorGradingChange({ ...colorGrading, brightness: parseFloat(e.target.value) })}
                 onChange={(e) => onColorGradingChange({ ...colorGrading, brightness: parseFloat(e.target.value) })}
                 style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
                 className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
@@ -298,6 +302,7 @@ export default function Controls({
                 max="2.0"
                 step="0.01"
                 value={colorGrading.contrast}
+                onInput={(e) => onColorGradingChange({ ...colorGrading, contrast: parseFloat(e.target.value) })}
                 onChange={(e) => onColorGradingChange({ ...colorGrading, contrast: parseFloat(e.target.value) })}
                 style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
                 className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
@@ -321,6 +326,7 @@ export default function Controls({
                 max="2.0"
                 step="0.01"
                 value={colorGrading.saturation}
+                onInput={(e) => onColorGradingChange({ ...colorGrading, saturation: parseFloat(e.target.value) })}
                 onChange={(e) => onColorGradingChange({ ...colorGrading, saturation: parseFloat(e.target.value) })}
                 style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
                 className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
