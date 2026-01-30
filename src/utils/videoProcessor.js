@@ -4,6 +4,7 @@ import {
   getOutputDimensions,
   MAX_CIRCLE_PERCENT,
   FEATHER_PERCENT,
+  buildFilterString,
 } from './canvasUtils'
 
 let ffmpeg = null
@@ -107,7 +108,8 @@ function renderCroppedFrame(
   phosphorColor,
   rotation,
   outputWidth,
-  outputHeight
+  outputHeight,
+  colorGrading = null
 ) {
   const outputCanvas = document.createElement('canvas')
   outputCanvas.width = outputWidth
@@ -118,6 +120,9 @@ function renderCroppedFrame(
   // Fill black background
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, outputWidth, outputHeight)
+
+  // Apply color grading filter
+  ctx.filter = buildFilterString(colorGrading)
 
   // Apply rotation if needed
   let sourceCanvas = frameCanvas
@@ -239,6 +244,7 @@ function renderCroppedFrame(
   }
 
   ctx.restore()
+  ctx.filter = 'none' // Reset filter
 
   return outputCanvas
 }
@@ -251,6 +257,7 @@ function renderCroppedFrame(
  * @param {string} phosphorColor - 'green' or 'white'
  * @param {number} rotation - Rotation in degrees
  * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
+ * @param {Object} colorGrading - Color grading settings {brightness, contrast, saturation}
  * @param {function} onProgress - Progress callback (0-100, message)
  * @returns {Promise<string>} Blob URL of processed video
  */
@@ -261,6 +268,7 @@ export async function processVideo(
   phosphorColor,
   rotation,
   aspectRatio,
+  colorGrading,
   onProgress
 ) {
   const { video, file, duration, fps } = videoData
@@ -319,7 +327,8 @@ export async function processVideo(
       phosphorColor,
       rotation,
       outputWidth,
-      outputHeight
+      outputHeight,
+      colorGrading
     )
 
     // Convert to PNG and write to FFmpeg

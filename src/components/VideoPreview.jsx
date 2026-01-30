@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT, buildFilterString } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20
 const HANDLE_HIT_RADIUS = 30
@@ -11,6 +11,7 @@ export default function VideoPreview({
   edgeStyle,
   phosphorColor,
   rotation = 0,
+  colorGrading,
 }) {
   const containerRef = useRef(null)
   const videoRef = useRef(null)
@@ -67,8 +68,9 @@ export default function VideoPreview({
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    // Apply rotation and draw video frame
+    // Apply color grading filter and rotation, then draw video frame
     ctx.save()
+    ctx.filter = buildFilterString(colorGrading)
     ctx.translate(displayWidth / 2, displayHeight / 2)
     ctx.rotate((rotation * Math.PI) / 180)
 
@@ -76,6 +78,7 @@ export default function VideoPreview({
     const drawHeight = height * scale
     ctx.drawImage(video, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
+    ctx.filter = 'none' // Reset filter for overlay drawing
 
     // Draw darkened overlay outside circle
     const circleX = circle.x * scale
@@ -150,7 +153,7 @@ export default function VideoPreview({
     ctx.arc(circleX, circleY, 6, 0, Math.PI * 2)
     ctx.fill()
     ctx.restore()
-  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, width, height])
+  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, width, height, colorGrading])
 
   // Animation loop for live preview
   useEffect(() => {

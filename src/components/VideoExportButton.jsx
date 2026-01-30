@@ -8,6 +8,7 @@ export default function VideoExportButton({
   phosphorColor,
   rotation = 0,
   aspectRatio = '9:16',
+  colorGrading,
 }) {
   const [state, setState] = useState('idle') // 'idle' | 'processing' | 'complete' | 'error'
   const [progress, setProgress] = useState(0)
@@ -39,6 +40,7 @@ export default function VideoExportButton({
         phosphorColor,
         rotation,
         aspectRatio,
+        colorGrading,
         (progressPercent, message) => {
           if (abortRef.current) return
           setProgress(progressPercent)
@@ -59,7 +61,7 @@ export default function VideoExportButton({
       setError(err.message || 'Video processing failed. Please try again.')
       setState('error')
     }
-  }, [videoData, circle, edgeStyle, phosphorColor, rotation, state, outputUrl])
+  }, [videoData, circle, edgeStyle, phosphorColor, rotation, aspectRatio, colorGrading, state, outputUrl])
 
   const handleDownload = useCallback(() => {
     if (outputUrl && videoData) {

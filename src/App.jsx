@@ -14,6 +14,12 @@ import { getInitialCircle } from './utils/canvasUtils'
 import { revokeImageUrl } from './utils/imageLoader'
 import { revokeVideoUrl } from './utils/videoLoader'
 
+// Color grading presets for auto-optimization based on phosphor type
+const COLOR_GRADING_PRESETS = {
+  green: { brightness: 1, contrast: 1.15, saturation: 0.8 },
+  white: { brightness: 1.05, contrast: 1.2, saturation: 0.2 },
+}
+
 export default function App() {
   // Mode: 'single' or 'dual'
   const [mode, setMode] = useState('single')
@@ -42,6 +48,27 @@ export default function App() {
   const [edgeStyle, setEdgeStyle] = useState('hard')
   const [phosphorColor, setPhosphorColor] = useState('green')
   const [aspectRatio, setAspectRatio] = useState('9:16')
+  const [colorGrading, setColorGrading] = useState({
+    brightness: 1,
+    contrast: 1,
+    saturation: 1,
+  })
+
+  // Handler for edge style changes - apply presets when switching to feathered
+  const handleEdgeStyleChange = useCallback((newStyle) => {
+    setEdgeStyle(newStyle)
+    if (newStyle === 'feathered') {
+      setColorGrading(COLOR_GRADING_PRESETS[phosphorColor])
+    }
+  }, [phosphorColor])
+
+  // Handler for phosphor color changes - apply presets when in feathered mode
+  const handlePhosphorColorChange = useCallback((newColor) => {
+    setPhosphorColor(newColor)
+    if (edgeStyle === 'feathered') {
+      setColorGrading(COLOR_GRADING_PRESETS[newColor])
+    }
+  }, [edgeStyle])
 
   // Single mode handlers
   const handleImageLoaded = useCallback((data) => {
@@ -159,6 +186,7 @@ export default function App() {
     setEdgeStyle('hard')
     setPhosphorColor('green')
     setLayout('vertical')
+    setColorGrading({ brightness: 1, contrast: 1, saturation: 1 })
   }, [mode, imageData, image1, image2, videoData])
 
   const hasSingleImage = imageData !== null
@@ -236,21 +264,24 @@ export default function App() {
                     edgeStyle={edgeStyle}
                     phosphorColor={phosphorColor}
                     rotation={rotation}
+                    colorGrading={colorGrading}
                   />
                 </div>
 
                 <Controls
                   mode="single"
                   edgeStyle={edgeStyle}
-                  onEdgeStyleChange={setEdgeStyle}
+                  onEdgeStyleChange={handleEdgeStyleChange}
                   phosphorColor={phosphorColor}
-                  onPhosphorColorChange={setPhosphorColor}
+                  onPhosphorColorChange={handlePhosphorColorChange}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
                   rotation={rotation}
                   onRotate={handleRotate}
                   imageInfo={{ width: imageData.width, height: imageData.height }}
                   onReset={handleReset}
+                  colorGrading={colorGrading}
+                  onColorGradingChange={setColorGrading}
                 />
 
                 <div className="px-4 pb-6 pt-2 bg-nv-gray/80">
@@ -264,6 +295,7 @@ export default function App() {
                       rotation={rotation}
                       aspectRatio={aspectRatio}
                       filename={imageData.originalName}
+                      colorGrading={colorGrading}
                     />
                   </div>
                 </div>
@@ -299,14 +331,15 @@ export default function App() {
                   layout={layout}
                   rotation1={rotation1}
                   rotation2={rotation2}
+                  colorGrading={colorGrading}
                 />
 
                 <Controls
                   mode="dual"
                   edgeStyle={edgeStyle}
-                  onEdgeStyleChange={setEdgeStyle}
+                  onEdgeStyleChange={handleEdgeStyleChange}
                   phosphorColor={phosphorColor}
-                  onPhosphorColorChange={setPhosphorColor}
+                  onPhosphorColorChange={handlePhosphorColorChange}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
                   layout={layout}
@@ -316,6 +349,8 @@ export default function App() {
                   onRotate1={handleRotate1}
                   onRotate2={handleRotate2}
                   onReset={handleReset}
+                  colorGrading={colorGrading}
+                  onColorGradingChange={setColorGrading}
                 />
 
                 <div className="px-4 pb-6 pt-2 bg-nv-gray/80">
@@ -334,6 +369,7 @@ export default function App() {
                       rotation2={rotation2}
                       aspectRatio={aspectRatio}
                       filename={image1.originalName}
+                      colorGrading={colorGrading}
                     />
                   </div>
                 </div>
@@ -359,21 +395,24 @@ export default function App() {
                     edgeStyle={edgeStyle}
                     phosphorColor={phosphorColor}
                     rotation={videoRotation}
+                    colorGrading={colorGrading}
                   />
                 </div>
 
                 <Controls
                   mode="single"
                   edgeStyle={edgeStyle}
-                  onEdgeStyleChange={setEdgeStyle}
+                  onEdgeStyleChange={handleEdgeStyleChange}
                   phosphorColor={phosphorColor}
-                  onPhosphorColorChange={setPhosphorColor}
+                  onPhosphorColorChange={handlePhosphorColorChange}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
                   rotation={videoRotation}
                   onRotate={handleVideoRotate}
                   imageInfo={{ width: videoData.width, height: videoData.height }}
                   onReset={handleReset}
+                  colorGrading={colorGrading}
+                  onColorGradingChange={setColorGrading}
                 />
 
                 <div className="px-4 pb-6 pt-2 bg-nv-gray/80">
@@ -385,6 +424,7 @@ export default function App() {
                       phosphorColor={phosphorColor}
                       rotation={videoRotation}
                       aspectRatio={aspectRatio}
+                      colorGrading={colorGrading}
                     />
                   </div>
                 </div>

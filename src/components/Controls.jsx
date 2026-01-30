@@ -18,6 +18,8 @@ export default function Controls({
   onRotate2,
   imageInfo,
   onReset,
+  colorGrading,
+  onColorGradingChange,
 }) {
   const currentAspect = ASPECT_RATIOS[aspectRatio] || ASPECT_RATIOS['9:16']
   return (
@@ -258,6 +260,69 @@ export default function Controls({
                 <span className="w-2 h-2 rounded-full bg-gray-200" />
                 White
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Color grading sliders */}
+        {colorGrading && onColorGradingChange && (
+          <div className="space-y-2 pt-2 border-t border-gray-700">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400 w-20">Brightness</span>
+              <input
+                type="range"
+                min="0.5"
+                max="1.5"
+                step="0.01"
+                value={colorGrading.brightness}
+                onChange={(e) => onColorGradingChange({ ...colorGrading, brightness: parseFloat(e.target.value) })}
+                className="flex-1 h-2 bg-gray-700 rounded-full appearance-none cursor-pointer
+                         [&::-webkit-slider-thumb]:appearance-none
+                         [&::-webkit-slider-thumb]:w-4
+                         [&::-webkit-slider-thumb]:h-4
+                         [&::-webkit-slider-thumb]:rounded-full
+                         [&::-webkit-slider-thumb]:bg-nv-green
+                         [&::-webkit-slider-thumb]:cursor-pointer"
+              />
+              <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.brightness * 100)}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400 w-20">Contrast</span>
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.01"
+                value={colorGrading.contrast}
+                onChange={(e) => onColorGradingChange({ ...colorGrading, contrast: parseFloat(e.target.value) })}
+                className="flex-1 h-2 bg-gray-700 rounded-full appearance-none cursor-pointer
+                         [&::-webkit-slider-thumb]:appearance-none
+                         [&::-webkit-slider-thumb]:w-4
+                         [&::-webkit-slider-thumb]:h-4
+                         [&::-webkit-slider-thumb]:rounded-full
+                         [&::-webkit-slider-thumb]:bg-nv-green
+                         [&::-webkit-slider-thumb]:cursor-pointer"
+              />
+              <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.contrast * 100)}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400 w-20">Saturation</span>
+              <input
+                type="range"
+                min="0"
+                max="2.0"
+                step="0.01"
+                value={colorGrading.saturation}
+                onChange={(e) => onColorGradingChange({ ...colorGrading, saturation: parseFloat(e.target.value) })}
+                className="flex-1 h-2 bg-gray-700 rounded-full appearance-none cursor-pointer
+                         [&::-webkit-slider-thumb]:appearance-none
+                         [&::-webkit-slider-thumb]:w-4
+                         [&::-webkit-slider-thumb]:h-4
+                         [&::-webkit-slider-thumb]:rounded-full
+                         [&::-webkit-slider-thumb]:bg-nv-green
+                         [&::-webkit-slider-thumb]:cursor-pointer"
+              />
+              <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.saturation * 100)}%</span>
             </div>
           </div>
         )}

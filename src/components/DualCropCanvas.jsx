@@ -1,10 +1,10 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT, buildFilterString } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 16
 const HANDLE_HIT_RADIUS = 25
 
-function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, sharedRadius, onRadiusChange, label, rotation = 0 }) {
+function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, sharedRadius, onRadiusChange, label, rotation = 0, colorGrading }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const [scale, setScale] = useState(1)
@@ -51,14 +51,16 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    // Apply rotation and draw image
+    // Apply color grading filter and rotation, then draw image
     ctx.save()
+    ctx.filter = buildFilterString(colorGrading)
     ctx.translate(displayWidth / 2, displayHeight / 2)
     ctx.rotate((rotation * Math.PI) / 180)
     const drawWidth = image.width * scale
     const drawHeight = image.height * scale
     ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
+    ctx.filter = 'none' // Reset filter for overlay drawing
 
     const circleX = circle.x * scale
     const circleY = circle.y * scale
@@ -128,7 +130,7 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius, rotation, rotatedDims])
+  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius, rotation, rotatedDims, colorGrading])
 
   const clientToImage = useCallback((clientX, clientY) => {
     const canvas = canvasRef.current
@@ -267,7 +269,8 @@ export default function DualCropCanvas({
   edgeStyle, phosphorColor,
   layout,
   rotation1 = 0,
-  rotation2 = 0
+  rotation2 = 0,
+  colorGrading
 }) {
   if (!image1 || !image2) return null
 
@@ -283,6 +286,7 @@ export default function DualCropCanvas({
         onRadiusChange={onRadiusChange}
         label={layout === 'horizontal' ? 'Left' : 'Top'}
         rotation={rotation1}
+        colorGrading={colorGrading}
       />
       <SingleCanvas
         image={image2.image}
@@ -294,6 +298,7 @@ export default function DualCropCanvas({
         onRadiusChange={onRadiusChange}
         label={layout === 'horizontal' ? 'Right' : 'Bottom'}
         rotation={rotation2}
+        colorGrading={colorGrading}
       />
     </div>
   )

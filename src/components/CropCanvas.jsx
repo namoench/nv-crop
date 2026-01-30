@@ -1,10 +1,10 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT, buildFilterString } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20 // Touch-friendly handle size
 const HANDLE_HIT_RADIUS = 30 // Larger hit area for touch
 
-export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, rotation = 0 }) {
+export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, rotation = 0, colorGrading }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const [scale, setScale] = useState(1)
@@ -53,8 +53,9 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    // Apply rotation and draw image
+    // Apply color grading filter and rotation, then draw image
     ctx.save()
+    ctx.filter = buildFilterString(colorGrading)
     ctx.translate(displayWidth / 2, displayHeight / 2)
     ctx.rotate((rotation * Math.PI) / 180)
 
@@ -62,6 +63,7 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     const drawHeight = image.height * scale
     ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
+    ctx.filter = 'none' // Reset filter for overlay drawing
 
     // Draw darkened overlay outside circle
     const circleX = circle.x * scale
@@ -137,7 +139,7 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims])
+  }, [image, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, colorGrading])
 
   // Convert client coordinates to rotated image coordinates
   const clientToImage = useCallback((clientX, clientY) => {

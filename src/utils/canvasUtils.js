@@ -30,6 +30,21 @@ export const MAX_CIRCLE_PERCENT = 0.9
 export const FEATHER_PERCENT = 0.025
 
 /**
+ * Build CSS filter string from color grading settings
+ * @param {Object} colorGrading - Color grading settings {brightness, contrast, saturation}
+ * @returns {string} CSS filter string or 'none'
+ */
+export function buildFilterString(colorGrading) {
+  if (!colorGrading) return 'none'
+  const { brightness = 1, contrast = 1, saturation = 1 } = colorGrading
+  const filters = []
+  if (brightness !== 1) filters.push(`brightness(${brightness})`)
+  if (contrast !== 1) filters.push(`contrast(${contrast})`)
+  if (saturation !== 1) filters.push(`saturate(${saturation})`)
+  return filters.length > 0 ? filters.join(' ') : 'none'
+}
+
+/**
  * Get rotated image dimensions
  */
 function getRotatedDimensions(width, height, rotation) {
@@ -69,7 +84,7 @@ function drawRotatedImage(image, rotation) {
  * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
  * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  */
-export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0, aspectRatio = '9:16') {
+export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0, aspectRatio = '9:16', colorGrading = null) {
   const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
   const ctx = canvas.getContext('2d')
   canvas.width = outputWidth
@@ -78,6 +93,9 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
   // Fill with black background
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, outputWidth, outputHeight)
+
+  // Apply color grading filter
+  ctx.filter = buildFilterString(colorGrading)
 
   // Get rotated source image if rotation is applied
   const sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
@@ -193,6 +211,9 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
 
   ctx.restore()
 
+  // Reset filter after drawing
+  ctx.filter = 'none'
+
   return canvas
 }
 
@@ -200,7 +221,9 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
  * Render a single circle crop to a specific position on canvas
  * Helper for dual render
  */
-function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, rotation = 0) {
+function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, rotation = 0, colorGrading = null) {
+  // Apply color grading filter
+  ctx.filter = buildFilterString(colorGrading)
   // Get rotated source image if rotation is applied
   const sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
 
@@ -282,6 +305,8 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
   }
 
   ctx.restore()
+  // Reset filter after drawing
+  ctx.filter = 'none'
 }
 
 /**
@@ -299,7 +324,7 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
  * @param {number} rotation2 - Rotation for image2 in degrees (0, 90, 180, 270)
  * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  */
-export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1 = 0, rotation2 = 0, aspectRatio = '9:16') {
+export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1 = 0, rotation2 = 0, aspectRatio = '9:16', colorGrading = null) {
   const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
   const ctx = canvas.getContext('2d')
   canvas.width = outputWidth
@@ -330,9 +355,9 @@ export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2,
     center2Y = outputHeight / 2
   }
 
-  // Render both circles with their respective rotations
-  renderCircleToCanvas(ctx, image1, circle1, sharedRadius, center1X, center1Y, outputRadius, edgeStyle, phosphorColor, rotation1)
-  renderCircleToCanvas(ctx, image2, circle2, sharedRadius, center2X, center2Y, outputRadius, edgeStyle, phosphorColor, rotation2)
+  // Render both circles with their respective rotations and color grading
+  renderCircleToCanvas(ctx, image1, circle1, sharedRadius, center1X, center1Y, outputRadius, edgeStyle, phosphorColor, rotation1, colorGrading)
+  renderCircleToCanvas(ctx, image2, circle2, sharedRadius, center2X, center2Y, outputRadius, edgeStyle, phosphorColor, rotation2, colorGrading)
 
   return canvas
 }
