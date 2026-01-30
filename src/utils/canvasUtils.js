@@ -30,9 +30,67 @@ export const MAX_CIRCLE_PERCENT = 0.9
 export const FEATHER_PERCENT = 0.025
 
 /**
- * Build CSS filter string from color grading settings
+ * Apply color grading to canvas using manual pixel manipulation
+ * This works on all browsers including iOS Safari where ctx.filter is buggy
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} width - Canvas width
+ * @param {number} height - Canvas height
+ * @param {Object} colorGrading - Color grading settings {brightness, contrast, saturation}
+ */
+export function applyColorGrading(ctx, width, height, colorGrading) {
+  if (!colorGrading) return
+  const { brightness = 1, contrast = 1, saturation = 1 } = colorGrading
+
+  // Skip if all values are default
+  if (brightness === 1 && contrast === 1 && saturation === 1) return
+
+  const imageData = ctx.getImageData(0, 0, width, height)
+  const data = imageData.data
+
+  // Precompute contrast factor
+  const contrastFactor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255))
+
+  for (let i = 0; i < data.length; i += 4) {
+    let r = data[i]
+    let g = data[i + 1]
+    let b = data[i + 2]
+
+    // Apply brightness
+    if (brightness !== 1) {
+      r = r * brightness
+      g = g * brightness
+      b = b * brightness
+    }
+
+    // Apply contrast
+    if (contrast !== 1) {
+      r = contrastFactor * (r - 128) + 128
+      g = contrastFactor * (g - 128) + 128
+      b = contrastFactor * (b - 128) + 128
+    }
+
+    // Apply saturation
+    if (saturation !== 1) {
+      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b
+      r = gray + saturation * (r - gray)
+      g = gray + saturation * (g - gray)
+      b = gray + saturation * (b - gray)
+    }
+
+    // Clamp values to 0-255
+    data[i] = Math.max(0, Math.min(255, r))
+    data[i + 1] = Math.max(0, Math.min(255, g))
+    data[i + 2] = Math.max(0, Math.min(255, b))
+  }
+
+  ctx.putImageData(imageData, 0, 0)
+}
+
+/**
+ * Build CSS filter string from color grading settings (for browsers that support it)
  * @param {Object} colorGrading - Color grading settings {brightness, contrast, saturation}
  * @returns {string} CSS filter string or 'none'
+ * @deprecated Use applyColorGrading for cross-browser support
  */
 export function buildFilterString(colorGrading) {
   if (!colorGrading) return 'none'
@@ -53,6 +111,22 @@ function getRotatedDimensions(width, height, rotation) {
     width: isRotated90or270 ? height : width,
     height: isRotated90or270 ? width : height,
   }
+}
+
+/**
+ * Apply color grading to an image and return a new canvas
+ * @param {HTMLImageElement|HTMLCanvasElement} source - Source image or canvas
+ * @param {Object} colorGrading - Color grading settings
+ * @returns {HTMLCanvasElement} New canvas with color grading applied
+ */
+function applyColorGradingToSource(source, colorGrading) {
+  const canvas = document.createElement('canvas')
+  canvas.width = source.width
+  canvas.height = source.height
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(source, 0, 0)
+  applyColorGrading(ctx, canvas.width, canvas.height, colorGrading)
+  return canvas
 }
 
 /**
@@ -94,11 +168,13 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, outputWidth, outputHeight)
 
-  // Apply color grading filter
-  ctx.filter = buildFilterString(colorGrading)
-
   // Get rotated source image if rotation is applied
-  const sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
+  let sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
+
+  // Apply color grading to source image (uses pixel manipulation for iOS Safari compatibility)
+  if (colorGrading) {
+    sourceImage = applyColorGradingToSource(sourceImage, colorGrading)
+  }
 
   // Calculate the output circle size
   // Scale the circle proportionally, but cap at MAX_CIRCLE_PERCENT of smaller dimension
@@ -211,9 +287,6 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
 
   ctx.restore()
 
-  // Reset filter after drawing
-  ctx.filter = 'none'
-
   return canvas
 }
 
@@ -222,10 +295,13 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
  * Helper for dual render
  */
 function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, rotation = 0, colorGrading = null) {
-  // Apply color grading filter
-  ctx.filter = buildFilterString(colorGrading)
   // Get rotated source image if rotation is applied
-  const sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
+  let sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
+
+  // Apply color grading to source image (uses pixel manipulation for iOS Safari compatibility)
+  if (colorGrading) {
+    sourceImage = applyColorGradingToSource(sourceImage, colorGrading)
+  }
 
   const sourceRadius = radius
   const sourceX = circle.x - sourceRadius
@@ -305,8 +381,6 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
   }
 
   ctx.restore()
-  // Reset filter after drawing
-  ctx.filter = 'none'
 }
 
 /**

@@ -4,7 +4,7 @@ import {
   getOutputDimensions,
   MAX_CIRCLE_PERCENT,
   FEATHER_PERCENT,
-  buildFilterString,
+  applyColorGrading,
 } from './canvasUtils'
 
 let ffmpeg = null
@@ -121,13 +121,16 @@ function renderCroppedFrame(
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, outputWidth, outputHeight)
 
-  // Apply color grading filter
-  ctx.filter = buildFilterString(colorGrading)
-
   // Apply rotation if needed
   let sourceCanvas = frameCanvas
   if (rotation !== 0) {
     sourceCanvas = drawRotatedCanvas(frameCanvas, rotation)
+  }
+
+  // Apply color grading using pixel manipulation (works on iOS Safari)
+  if (colorGrading) {
+    const tempCtx = sourceCanvas.getContext('2d')
+    applyColorGrading(tempCtx, sourceCanvas.width, sourceCanvas.height, colorGrading)
   }
 
   // Calculate output circle size
@@ -244,7 +247,6 @@ function renderCroppedFrame(
   }
 
   ctx.restore()
-  ctx.filter = 'none' // Reset filter
 
   return outputCanvas
 }

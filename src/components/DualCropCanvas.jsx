@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT, buildFilterString } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT, applyColorGrading } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 16
 const HANDLE_HIT_RADIUS = 25
@@ -51,16 +51,17 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    // Apply color grading filter and rotation, then draw image
+    // Apply rotation and draw image
     ctx.save()
-    ctx.filter = buildFilterString(colorGrading)
     ctx.translate(displayWidth / 2, displayHeight / 2)
     ctx.rotate((rotation * Math.PI) / 180)
     const drawWidth = image.width * scale
     const drawHeight = image.height * scale
     ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
-    ctx.filter = 'none' // Reset filter for overlay drawing
+
+    // Apply color grading using pixel manipulation (works on iOS Safari)
+    applyColorGrading(ctx, displayWidth, displayHeight, colorGrading)
 
     const circleX = circle.x * scale
     const circleY = circle.y * scale

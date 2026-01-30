@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT, buildFilterString } from '../utils/canvasUtils'
+import { constrainCircle, FEATHER_PERCENT, applyColorGrading } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20
 const HANDLE_HIT_RADIUS = 30
@@ -68,9 +68,8 @@ export default function VideoPreview({
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    // Apply color grading filter and rotation, then draw video frame
+    // Apply rotation and draw video frame
     ctx.save()
-    ctx.filter = buildFilterString(colorGrading)
     ctx.translate(displayWidth / 2, displayHeight / 2)
     ctx.rotate((rotation * Math.PI) / 180)
 
@@ -78,7 +77,9 @@ export default function VideoPreview({
     const drawHeight = height * scale
     ctx.drawImage(video, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
-    ctx.filter = 'none' // Reset filter for overlay drawing
+
+    // Apply color grading using pixel manipulation (works on iOS Safari)
+    applyColorGrading(ctx, displayWidth, displayHeight, colorGrading)
 
     // Draw darkened overlay outside circle
     const circleX = circle.x * scale
