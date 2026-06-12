@@ -1,12 +1,13 @@
 import { useCallback, useState, useRef } from 'react'
 import { processVideo, downloadVideo, revokeProcessedVideoUrl } from '../utils/videoProcessor'
+import { DEFAULT_TRANSFORM } from '../utils/canvasUtils'
 
 export default function VideoExportButton({
   videoData,
   circle,
   edgeStyle,
   phosphorColor,
-  rotation = 0,
+  transform = DEFAULT_TRANSFORM,
   aspectRatio = '9:16',
   colorGrading,
 }) {
@@ -38,7 +39,7 @@ export default function VideoExportButton({
         circle,
         edgeStyle,
         phosphorColor,
-        rotation,
+        transform,
         aspectRatio,
         colorGrading,
         (progressPercent, message) => {
@@ -61,7 +62,7 @@ export default function VideoExportButton({
       setError(err.message || 'Video processing failed. Please try again.')
       setState('error')
     }
-  }, [videoData, circle, edgeStyle, phosphorColor, rotation, aspectRatio, colorGrading, state, outputUrl])
+  }, [videoData, circle, edgeStyle, phosphorColor, transform, aspectRatio, colorGrading, state, outputUrl])
 
   const handleDownload = useCallback(() => {
     if (outputUrl && videoData) {

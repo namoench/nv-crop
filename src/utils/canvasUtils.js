@@ -50,6 +50,79 @@ export const TINT_COLORS = {
 }
 
 /**
+ * Default image transform (orientation) settings.
+ * rotation: coarse rotation in 90° steps (0, 90, 180, 270)
+ * straighten: fine rotation in degrees (-STRAIGHTEN_RANGE..STRAIGHTEN_RANGE)
+ * flipH/flipV: mirror across the source image's own vertical/horizontal axis
+ */
+export const DEFAULT_TRANSFORM = {
+  rotation: 0,
+  straighten: 0,
+  flipH: false,
+  flipV: false,
+}
+
+/**
+ * Maximum fine-rotation angle in degrees (either direction)
+ */
+export const STRAIGHTEN_RANGE = 45
+
+/**
+ * Whether a transform is the identity (nothing to undo)
+ */
+export function isDefaultTransform(transform) {
+  return (
+    !transform ||
+    (transform.rotation === 0 &&
+      !transform.straighten &&
+      !transform.flipH &&
+      !transform.flipV)
+  )
+}
+
+/**
+ * Rotate a transform by 90° in the given direction ('left' or 'right')
+ */
+export function rotateTransform(transform, direction) {
+  const delta = direction === 'left' ? -90 : 90
+  return { ...transform, rotation: (transform.rotation + delta + 360) % 360 }
+}
+
+/**
+ * Flip a transform across a screen-space axis ('horizontal' mirrors
+ * left-right as displayed, 'vertical' mirrors top-bottom). When the image is
+ * rotated sideways, the source axes swap relative to the screen, so the
+ * opposite source flag is toggled to keep the buttons behaving visually.
+ */
+export function flipTransform(transform, axis) {
+  const sideways = transform.rotation === 90 || transform.rotation === 270
+  const key = (axis === 'horizontal') !== sideways ? 'flipH' : 'flipV'
+  return { ...transform, [key]: !transform[key] }
+}
+
+/**
+ * Which screen-space axes currently appear flipped (for button active states)
+ */
+export function getViewFlips(transform) {
+  const sideways = transform.rotation === 90 || transform.rotation === 270
+  return {
+    horizontal: sideways ? transform.flipV : transform.flipH,
+    vertical: sideways ? transform.flipH : transform.flipV,
+  }
+}
+
+/**
+ * Apply a transform to a canvas context whose origin is at the frame center.
+ * Flips are applied in source space (innermost), so the on-screen rotation
+ * direction stays consistent regardless of flips.
+ */
+export function applyImageTransform(ctx, transform) {
+  const { rotation = 0, straighten = 0, flipH = false, flipV = false } = transform || {}
+  ctx.rotate(((rotation + straighten) * Math.PI) / 180)
+  ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1)
+}
+
+/**
  * Apply color grading to canvas using manual pixel manipulation
  * This works on all browsers including iOS Safari where ctx.filter is buggy
  * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -124,9 +197,12 @@ export function applyTint(ctx, width, height, tint, strength = 1) {
 }
 
 /**
- * Get rotated image dimensions
+ * Get the frame (working/crop space) dimensions for a transformed image.
+ * Only the coarse 90° rotation swaps width and height; straightening rotates
+ * the image within the same frame so the crop space stays stable.
  */
-function getRotatedDimensions(width, height, rotation) {
+export function getTransformedDimensions(width, height, transform) {
+  const rotation = transform?.rotation ?? 0
   const isRotated90or270 = rotation === 90 || rotation === 270
   return {
     width: isRotated90or270 ? height : width,
@@ -136,16 +212,16 @@ function getRotatedDimensions(width, height, rotation) {
 
 /**
  * Extract the circle's bounding square from the source into a small canvas
- * at output resolution, applying rotation in the same pass. Doing this before
- * color grading means the per-pixel work runs on ~1MP instead of the full
- * source resolution (which can be 48MP for ProRAW).
+ * at output resolution, applying the transform in the same pass. Doing this
+ * before color grading means the per-pixel work runs on ~1MP instead of the
+ * full source resolution (which can be 48MP for ProRAW).
  * @param {HTMLImageElement|HTMLCanvasElement} source - Source image or canvas
- * @param {Object} circle - Circle {x, y, radius} in rotated-image coordinates
- * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
+ * @param {Object} circle - Circle {x, y, radius} in frame coordinates
+ * @param {Object} transform - Transform {rotation, straighten, flipH, flipV}
  * @param {number} outputSize - Side length of the result canvas in pixels
  * @returns {HTMLCanvasElement} outputSize x outputSize canvas of the circle region
  */
-function extractCircleRegion(source, circle, rotation, outputSize) {
+function extractCircleRegion(source, circle, transform, outputSize) {
   const canvas = document.createElement('canvas')
   canvas.width = outputSize
   canvas.height = outputSize
@@ -153,16 +229,23 @@ function extractCircleRegion(source, circle, rotation, outputSize) {
 
   const w = source.width
   const h = source.height
-  const rotated = getRotatedDimensions(w, h, rotation)
+  const frame = getTransformedDimensions(w, h, transform)
   const scale = outputSize / (circle.radius * 2)
 
-  // Map (circle.x, circle.y) in rotated-image space to the canvas center,
+  // Map (circle.x, circle.y) in frame space to the canvas center,
   // scaled so the circle's bounding square fills the canvas
   ctx.save()
   ctx.translate(outputSize / 2, outputSize / 2)
   ctx.scale(scale, scale)
-  ctx.translate(rotated.width / 2 - circle.x, rotated.height / 2 - circle.y)
-  ctx.rotate((rotation * Math.PI) / 180)
+  ctx.translate(frame.width / 2 - circle.x, frame.height / 2 - circle.y)
+  // Straightening swings image corners outside the frame the preview shows;
+  // clip to the frame so the export matches the preview exactly
+  if (transform?.straighten) {
+    ctx.beginPath()
+    ctx.rect(-frame.width / 2, -frame.height / 2, frame.width, frame.height)
+    ctx.clip()
+  }
+  applyImageTransform(ctx, transform)
   ctx.drawImage(source, -w / 2, -h / 2)
   ctx.restore()
 
@@ -172,9 +255,9 @@ function extractCircleRegion(source, circle, rotation, outputSize) {
 /**
  * Render a single circle crop to a specific position on canvas
  */
-function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, rotation = 0, colorGrading = null) {
+function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, transform = DEFAULT_TRANSFORM, colorGrading = null) {
   const outputSize = Math.round(outputRadius * 2)
-  const region = extractCircleRegion(image, { x: circle.x, y: circle.y, radius }, rotation, outputSize)
+  const region = extractCircleRegion(image, { x: circle.x, y: circle.y, radius }, transform, outputSize)
 
   // Tint first, then grade - matches the preview, where the brightness/
   // contrast/saturation CSS filter is applied on top of the tinted canvas
@@ -244,13 +327,13 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
  * Draw the source image with circular crop onto a canvas
  * @param {HTMLCanvasElement} canvas - The canvas to draw on
  * @param {HTMLImageElement|HTMLCanvasElement} image - The source image
- * @param {Object} circle - Circle selection {x, y, radius} in image coordinates
+ * @param {Object} circle - Circle selection {x, y, radius} in frame coordinates
  * @param {string} edgeStyle - 'hard' or 'feathered'
  * @param {string} phosphorColor - 'green' or 'white'
- * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
+ * @param {Object} transform - Transform {rotation, straighten, flipH, flipV}
  * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  */
-export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0, aspectRatio = '9:16', colorGrading = null) {
+export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', transform = DEFAULT_TRANSFORM, aspectRatio = '9:16', colorGrading = null) {
   const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
   const ctx = canvas.getContext('2d')
   canvas.width = outputWidth
@@ -267,7 +350,7 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
   renderCircleToCanvas(
     ctx, image, circle, circle.radius,
     outputWidth / 2, outputHeight / 2, outputRadius,
-    edgeStyle, phosphorColor, rotation, colorGrading
+    edgeStyle, phosphorColor, transform, colorGrading
   )
 
   return canvas
@@ -284,11 +367,11 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
  * @param {string} layout - 'vertical' or 'horizontal'
  * @param {string} edgeStyle - 'hard' or 'feathered'
  * @param {string} phosphorColor - 'green' or 'white'
- * @param {number} rotation1 - Rotation for image1 in degrees (0, 90, 180, 270)
- * @param {number} rotation2 - Rotation for image2 in degrees (0, 90, 180, 270)
+ * @param {Object} transform1 - Transform for image1 {rotation, straighten, flipH, flipV}
+ * @param {Object} transform2 - Transform for image2 {rotation, straighten, flipH, flipV}
  * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  */
-export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, rotation1 = 0, rotation2 = 0, aspectRatio = '9:16', colorGrading = null) {
+export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2, sharedRadius, layout, edgeStyle, phosphorColor, transform1 = DEFAULT_TRANSFORM, transform2 = DEFAULT_TRANSFORM, aspectRatio = '9:16', colorGrading = null) {
   const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
   const ctx = canvas.getContext('2d')
   canvas.width = outputWidth
@@ -319,9 +402,9 @@ export function renderDualCroppedImage(canvas, image1, image2, circle1, circle2,
     center2Y = outputHeight / 2
   }
 
-  // Render both circles with their respective rotations and color grading
-  renderCircleToCanvas(ctx, image1, circle1, sharedRadius, center1X, center1Y, outputRadius, edgeStyle, phosphorColor, rotation1, colorGrading)
-  renderCircleToCanvas(ctx, image2, circle2, sharedRadius, center2X, center2Y, outputRadius, edgeStyle, phosphorColor, rotation2, colorGrading)
+  // Render both circles with their respective transforms and color grading
+  renderCircleToCanvas(ctx, image1, circle1, sharedRadius, center1X, center1Y, outputRadius, edgeStyle, phosphorColor, transform1, colorGrading)
+  renderCircleToCanvas(ctx, image2, circle2, sharedRadius, center2X, center2Y, outputRadius, edgeStyle, phosphorColor, transform2, colorGrading)
 
   return canvas
 }

@@ -1,24 +1,32 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, applyTint, getTouchDistance, FEATHER_PERCENT, WHEEL_ZOOM_FACTOR } from '../utils/canvasUtils'
+import {
+  constrainCircle,
+  applyTint,
+  applyImageTransform,
+  getTransformedDimensions,
+  getTouchDistance,
+  DEFAULT_TRANSFORM,
+  FEATHER_PERCENT,
+  WHEEL_ZOOM_FACTOR,
+} from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20 // Touch-friendly handle size
 const HANDLE_HIT_RADIUS = 30 // Larger hit area for touch
 
-export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, rotation = 0, colorGrading }) {
+export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor, transform = DEFAULT_TRANSFORM, colorGrading }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   const [scale, setScale] = useState(1)
   const [dragging, setDragging] = useState(null) // 'center' or 'edge'
   const [dragStart, setDragStart] = useState(null)
 
-  // Calculate rotated dimensions
-  const rotatedDims = useMemo(() => {
-    const isRotated90or270 = rotation === 90 || rotation === 270
-    return {
-      width: isRotated90or270 ? image.height : image.width,
-      height: isRotated90or270 ? image.width : image.height,
-    }
-  }, [image, rotation])
+  // Frame (crop space) dimensions: only the 90° rotation swaps width/height,
+  // so straightening and flips don't disturb the layout or circle space
+  const { rotation = 0, straighten = 0, flipH = false, flipV = false } = transform
+  const rotatedDims = useMemo(
+    () => getTransformedDimensions(image.width, image.height, { rotation }),
+    [image, rotation]
+  )
 
   // Calculate display scale to fit rotated image in container.
   // ResizeObserver also catches container changes that aren't window resizes
@@ -59,10 +67,10 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     canvas.style.height = `${displayHeight}px`
     ctx.scale(dpr, dpr)
 
-    // Apply rotation and draw image
+    // Apply transform (rotate / straighten / flip) and draw image
     ctx.save()
     ctx.translate(displayWidth / 2, displayHeight / 2)
-    ctx.rotate((rotation * Math.PI) / 180)
+    applyImageTransform(ctx, { rotation, straighten, flipH, flipV })
 
     const drawWidth = image.width * scale
     const drawHeight = image.height * scale
@@ -146,9 +154,9 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, tint, tintStrength])
+  }, [image, circle, scale, edgeStyle, phosphorColor, rotation, straighten, flipH, flipV, rotatedDims, tint, tintStrength])
 
-  // Convert client coordinates to rotated image coordinates
+  // Convert client coordinates to frame coordinates
   const clientToImage = useCallback((clientX, clientY) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }

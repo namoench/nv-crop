@@ -1,4 +1,13 @@
-import { ASPECT_RATIOS, DEFAULT_COLOR_GRADING } from '../utils/canvasUtils'
+import {
+  ASPECT_RATIOS,
+  DEFAULT_COLOR_GRADING,
+  DEFAULT_TRANSFORM,
+  STRAIGHTEN_RANGE,
+  isDefaultTransform,
+  rotateTransform,
+  flipTransform,
+  getViewFlips,
+} from '../utils/canvasUtils'
 
 const SLIDER_CLASS = `flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
   [&::-webkit-slider-thumb]:appearance-none
@@ -64,26 +73,104 @@ function Segmented({ value, onChange, options }) {
   )
 }
 
-function RotateButton({ onClick, direction, children, title }) {
+function ToolButton({ onClick, active, children, title }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
-      className="flex-1 py-2 px-2 rounded-lg bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 active:bg-gray-700 transition-all flex items-center justify-center gap-1.5 text-sm"
+      className={`
+        flex-1 py-2 px-1.5 rounded-lg transition-all
+        flex items-center justify-center gap-1.5 text-sm
+        ${active
+          ? SEG_ACTIVE
+          : 'bg-nv-dark text-gray-400 hover:text-white hover:bg-gray-700 active:bg-gray-700'}
+      `}
     >
-      <svg
-        className="w-4 h-4"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        style={direction === 'right' ? { transform: 'scaleX(-1)' } : undefined}
-      >
-        <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
-      </svg>
       {children}
     </button>
+  )
+}
+
+function RotateIcon({ direction }) {
+  return (
+    <svg
+      className="w-4 h-4 flex-none"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      style={direction === 'right' ? { transform: 'scaleX(-1)' } : undefined}
+    >
+      <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
+    </svg>
+  )
+}
+
+function FlipIcon({ axis }) {
+  return (
+    <svg
+      className="w-4 h-4 flex-none"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+      style={axis === 'vertical' ? { transform: 'rotate(90deg)' } : undefined}
+    >
+      <path d="M3 7l5 5-5 5V7z" />
+      <path d="M21 7l-5 5 5 5V7z" />
+      <path d="M12 20v2M12 14v2M12 8v2M12 2v2" />
+    </svg>
+  )
+}
+
+// Compact rotate / flip button strip for one image (dual mode)
+function TransformButtons({ transform, onChange, imageLabel }) {
+  const viewFlips = getViewFlips(transform)
+  const suffix = imageLabel ? ` (image ${imageLabel})` : ''
+  return (
+    <div className="flex gap-2 flex-1">
+      <ToolButton onClick={() => onChange(rotateTransform(transform, 'left'))} title={`Rotate 90° left${suffix}`}>
+        <RotateIcon direction="left" />
+      </ToolButton>
+      <ToolButton onClick={() => onChange(rotateTransform(transform, 'right'))} title={`Rotate 90° right${suffix}`}>
+        <RotateIcon direction="right" />
+      </ToolButton>
+      <ToolButton
+        onClick={() => onChange(flipTransform(transform, 'horizontal'))}
+        active={viewFlips.horizontal}
+        title={`Flip horizontally${suffix}`}
+      >
+        <FlipIcon axis="horizontal" />
+      </ToolButton>
+      <ToolButton
+        onClick={() => onChange(flipTransform(transform, 'vertical'))}
+        active={viewFlips.vertical}
+        title={`Flip vertically${suffix}`}
+      >
+        <FlipIcon axis="vertical" />
+      </ToolButton>
+    </div>
+  )
+}
+
+function StraightenSlider({ transform, onChange }) {
+  return (
+    <>
+      <input
+        type="range"
+        min={-STRAIGHTEN_RANGE}
+        max={STRAIGHTEN_RANGE}
+        step="1"
+        value={transform.straighten}
+        onChange={(e) => onChange({ ...transform, straighten: parseFloat(e.target.value) })}
+        onDoubleClick={() => onChange({ ...transform, straighten: 0 })}
+        style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
+        className={SLIDER_CLASS}
+      />
+      <span className="text-xs text-gray-500 w-12 text-right tabular-nums">{transform.straighten}°</span>
+    </>
   )
 }
 
@@ -116,15 +203,34 @@ export default function Controls({
   onAspectRatioChange,
   layout,
   onLayoutChange,
-  onRotate,
-  onRotate1,
-  onRotate2,
+  transform,
+  onTransformChange,
+  transform1,
+  transform2,
+  onTransform1Change,
+  onTransform2Change,
   imageInfo,
   colorGrading,
   onColorGradingChange,
   onReset,
 }) {
   const currentAspect = ASPECT_RATIOS[aspectRatio] || ASPECT_RATIOS['9:16']
+
+  const hasSingleTransform = mode === 'single' && transform && onTransformChange
+  const hasDualTransform = mode === 'dual' && transform1 && transform2 && onTransform1Change && onTransform2Change
+  const transformDirty = hasSingleTransform
+    ? !isDefaultTransform(transform)
+    : hasDualTransform && (!isDefaultTransform(transform1) || !isDefaultTransform(transform2))
+
+  const singleViewFlips = hasSingleTransform ? getViewFlips(transform) : null
+
+  const resetTransforms = () => {
+    if (hasSingleTransform) onTransformChange({ ...DEFAULT_TRANSFORM })
+    if (hasDualTransform) {
+      onTransform1Change({ ...DEFAULT_TRANSFORM })
+      onTransform2Change({ ...DEFAULT_TRANSFORM })
+    }
+  }
 
   return (
     <div className="px-4 py-4 space-y-5 max-w-lg mx-auto md:max-w-none">
@@ -136,28 +242,77 @@ export default function Controls({
         </div>
       )}
 
-      <Section title="Frame">
-        {/* Rotation - single mode */}
-        {mode === 'single' && onRotate && (
-          <Row label="Rotate">
-            <div className="flex gap-2 flex-1">
-              <RotateButton onClick={() => onRotate('left')} direction="left">90° Left</RotateButton>
-              <RotateButton onClick={() => onRotate('right')} direction="right">90° Right</RotateButton>
-            </div>
-          </Row>
+      <Section
+        title="Frame"
+        action={
+          transformDirty && (
+            <button
+              type="button"
+              onClick={resetTransforms}
+              className="text-xs text-gray-500 hover:text-white transition-colors"
+            >
+              Reset
+            </button>
+          )
+        }
+      >
+        {/* Rotate / flip / straighten - single mode */}
+        {hasSingleTransform && (
+          <>
+            <Row label="Rotate">
+              <div className="flex gap-2 flex-1">
+                <ToolButton onClick={() => onTransformChange(rotateTransform(transform, 'left'))} title="Rotate 90° left">
+                  <RotateIcon direction="left" />
+                  90° Left
+                </ToolButton>
+                <ToolButton onClick={() => onTransformChange(rotateTransform(transform, 'right'))} title="Rotate 90° right">
+                  <RotateIcon direction="right" />
+                  90° Right
+                </ToolButton>
+              </div>
+            </Row>
+            <Row label="Flip">
+              <div className="flex gap-2 flex-1">
+                <ToolButton
+                  onClick={() => onTransformChange(flipTransform(transform, 'horizontal'))}
+                  active={singleViewFlips.horizontal}
+                  title="Flip horizontally"
+                >
+                  <FlipIcon axis="horizontal" />
+                  Horizontal
+                </ToolButton>
+                <ToolButton
+                  onClick={() => onTransformChange(flipTransform(transform, 'vertical'))}
+                  active={singleViewFlips.vertical}
+                  title="Flip vertically"
+                >
+                  <FlipIcon axis="vertical" />
+                  Vertical
+                </ToolButton>
+              </div>
+            </Row>
+            <Row label="Straighten">
+              <StraightenSlider transform={transform} onChange={onTransformChange} />
+            </Row>
+          </>
         )}
 
-        {/* Rotation - dual mode */}
-        {mode === 'dual' && (onRotate1 || onRotate2) && (
-          <Row label="Rotate">
-            <div className="flex gap-2 flex-1">
-              <RotateButton onClick={() => onRotate1('left')} direction="left" title="Rotate image 1 left">1</RotateButton>
-              <RotateButton onClick={() => onRotate1('right')} direction="right" title="Rotate image 1 right">1</RotateButton>
-              <div className="w-px bg-gray-700" />
-              <RotateButton onClick={() => onRotate2('left')} direction="left" title="Rotate image 2 left">2</RotateButton>
-              <RotateButton onClick={() => onRotate2('right')} direction="right" title="Rotate image 2 right">2</RotateButton>
-            </div>
-          </Row>
+        {/* Rotate / flip / straighten - dual mode */}
+        {hasDualTransform && (
+          <>
+            <Row label="Image 1">
+              <TransformButtons transform={transform1} onChange={onTransform1Change} imageLabel="1" />
+            </Row>
+            <Row label="Straighten">
+              <StraightenSlider transform={transform1} onChange={onTransform1Change} />
+            </Row>
+            <Row label="Image 2">
+              <TransformButtons transform={transform2} onChange={onTransform2Change} imageLabel="2" />
+            </Row>
+            <Row label="Straighten">
+              <StraightenSlider transform={transform2} onChange={onTransform2Change} />
+            </Row>
+          </>
         )}
 
         {/* Layout - dual mode */}

@@ -11,7 +11,13 @@ import Controls from './components/Controls'
 import EditorLayout from './components/EditorLayout'
 import ExportButton from './components/ExportButton'
 import VideoExportButton from './components/VideoExportButton'
-import { getInitialCircle, DEFAULT_COLOR_GRADING } from './utils/canvasUtils'
+import {
+  getInitialCircle,
+  DEFAULT_COLOR_GRADING,
+  DEFAULT_TRANSFORM,
+  constrainCircle,
+  getTransformedDimensions,
+} from './utils/canvasUtils'
 import { revokeImageUrl } from './utils/imageLoader'
 import { revokeVideoUrl } from './utils/videoLoader'
 
@@ -43,7 +49,7 @@ export default function App() {
   // Single mode state
   const [imageData, setImageData] = useState(null)
   const [circle, setCircle] = useState(null)
-  const [rotation, setRotation] = useState(0)
+  const [transform, setTransform] = useState({ ...DEFAULT_TRANSFORM })
 
   // Dual mode state
   const [image1, setImage1] = useState(null)
@@ -52,13 +58,13 @@ export default function App() {
   const [circle2, setCircle2] = useState(null)
   const [sharedRadius, setSharedRadius] = useState(200)
   const [layout, setLayout] = useState('vertical')
-  const [rotation1, setRotation1] = useState(0)
-  const [rotation2, setRotation2] = useState(0)
+  const [transform1, setTransform1] = useState({ ...DEFAULT_TRANSFORM })
+  const [transform2, setTransform2] = useState({ ...DEFAULT_TRANSFORM })
 
   // Video mode state
   const [videoData, setVideoData] = useState(null)
   const [videoCircle, setVideoCircle] = useState(null)
-  const [videoRotation, setVideoRotation] = useState(0)
+  const [videoTransform, setVideoTransform] = useState({ ...DEFAULT_TRANSFORM })
 
   // Shared state
   const [edgeStyle, setEdgeStyle] = useState('hard')
@@ -89,33 +95,44 @@ export default function App() {
     }
     setImageData(data)
     setCircle(getInitialCircle(data.width, data.height))
-    setRotation(0)
+    setTransform({ ...DEFAULT_TRANSFORM })
     setEdgeStyle('hard')
     setPhosphorColor('green')
   }, [imageData])
 
-  // Rotation handler for single mode
-  const handleRotate = useCallback((direction) => {
-    setRotation(prev => {
-      const delta = direction === 'left' ? -90 : 90
-      return (prev + delta + 360) % 360
-    })
-  }, [])
+  // Transform handlers re-constrain the crop circle because a 90° rotation
+  // swaps the frame's width and height
+  const handleTransformChange = useCallback((next) => {
+    setTransform(next)
+    if (imageData) {
+      const dims = getTransformedDimensions(imageData.width, imageData.height, next)
+      setCircle(c => (c ? constrainCircle(c, dims.width, dims.height) : c))
+    }
+  }, [imageData])
 
-  // Rotation handlers for dual mode
-  const handleRotate1 = useCallback((direction) => {
-    setRotation1(prev => {
-      const delta = direction === 'left' ? -90 : 90
-      return (prev + delta + 360) % 360
-    })
-  }, [])
+  const handleTransform1Change = useCallback((next) => {
+    setTransform1(next)
+    if (image1) {
+      const dims = getTransformedDimensions(image1.width, image1.height, next)
+      setCircle1(c => {
+        if (!c) return c
+        const { x, y } = constrainCircle({ ...c, radius: sharedRadius }, dims.width, dims.height)
+        return { x, y }
+      })
+    }
+  }, [image1, sharedRadius])
 
-  const handleRotate2 = useCallback((direction) => {
-    setRotation2(prev => {
-      const delta = direction === 'left' ? -90 : 90
-      return (prev + delta + 360) % 360
-    })
-  }, [])
+  const handleTransform2Change = useCallback((next) => {
+    setTransform2(next)
+    if (image2) {
+      const dims = getTransformedDimensions(image2.width, image2.height, next)
+      setCircle2(c => {
+        if (!c) return c
+        const { x, y } = constrainCircle({ ...c, radius: sharedRadius }, dims.width, dims.height)
+        return { x, y }
+      })
+    }
+  }, [image2, sharedRadius])
 
   // Video mode handlers
   const handleVideoLoaded = useCallback((data) => {
@@ -124,17 +141,18 @@ export default function App() {
     }
     setVideoData(data)
     setVideoCircle(getInitialCircle(data.width, data.height))
-    setVideoRotation(0)
+    setVideoTransform({ ...DEFAULT_TRANSFORM })
     setEdgeStyle('hard')
     setPhosphorColor('green')
   }, [videoData])
 
-  const handleVideoRotate = useCallback((direction) => {
-    setVideoRotation(prev => {
-      const delta = direction === 'left' ? -90 : 90
-      return (prev + delta + 360) % 360
-    })
-  }, [])
+  const handleVideoTransformChange = useCallback((next) => {
+    setVideoTransform(next)
+    if (videoData) {
+      const dims = getTransformedDimensions(videoData.width, videoData.height, next)
+      setVideoCircle(c => (c ? constrainCircle(c, dims.width, dims.height) : c))
+    }
+  }, [videoData])
 
   // Dual mode handlers
   const handleDualImagesLoaded = useCallback((img1, img2) => {
@@ -150,12 +168,12 @@ export default function App() {
       const initial = getInitialCircle(img1.width, img1.height)
       setCircle1({ x: initial.x, y: initial.y })
       setSharedRadius(initial.radius)
-      setRotation1(0)
+      setTransform1({ ...DEFAULT_TRANSFORM })
     }
     if (img2 && (!circle2 || img2 !== image2)) {
       const initial = getInitialCircle(img2.width, img2.height)
       setCircle2({ x: initial.x, y: initial.y })
-      setRotation2(0)
+      setTransform2({ ...DEFAULT_TRANSFORM })
     }
   }, [image1, image2, circle1, circle2])
 
@@ -178,7 +196,7 @@ export default function App() {
       if (imageData?.url) revokeImageUrl(imageData.url)
       setImageData(null)
       setCircle(null)
-      setRotation(0)
+      setTransform({ ...DEFAULT_TRANSFORM })
     } else if (mode === 'dual') {
       if (image1?.url) revokeImageUrl(image1.url)
       if (image2?.url) revokeImageUrl(image2.url)
@@ -187,13 +205,13 @@ export default function App() {
       setCircle1(null)
       setCircle2(null)
       setSharedRadius(200)
-      setRotation1(0)
-      setRotation2(0)
+      setTransform1({ ...DEFAULT_TRANSFORM })
+      setTransform2({ ...DEFAULT_TRANSFORM })
     } else if (mode === 'video') {
       if (videoData?.url) revokeVideoUrl(videoData.url)
       setVideoData(null)
       setVideoCircle(null)
-      setVideoRotation(0)
+      setVideoTransform({ ...DEFAULT_TRANSFORM })
     }
     setEdgeStyle('hard')
     setPhosphorColor('green')
@@ -264,7 +282,7 @@ export default function App() {
                   onCircleChange={setCircle}
                   edgeStyle={edgeStyle}
                   phosphorColor={phosphorColor}
-                  rotation={rotation}
+                  transform={transform}
                   colorGrading={colorGrading}
                 />
               }
@@ -277,8 +295,8 @@ export default function App() {
                   onPhosphorColorChange={handlePhosphorColorChange}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
-                  rotation={rotation}
-                  onRotate={handleRotate}
+                  transform={transform}
+                  onTransformChange={handleTransformChange}
                   imageInfo={{ width: imageData.width, height: imageData.height }}
                   colorGrading={colorGrading}
                   onColorGradingChange={setColorGrading}
@@ -292,7 +310,7 @@ export default function App() {
                   circle={circle}
                   edgeStyle={edgeStyle}
                   phosphorColor={phosphorColor}
-                  rotation={rotation}
+                  transform={transform}
                   aspectRatio={aspectRatio}
                   filename={imageData.originalName}
                   colorGrading={colorGrading}
@@ -327,8 +345,8 @@ export default function App() {
                   edgeStyle={edgeStyle}
                   phosphorColor={phosphorColor}
                   layout={layout}
-                  rotation1={rotation1}
-                  rotation2={rotation2}
+                  transform1={transform1}
+                  transform2={transform2}
                   colorGrading={colorGrading}
                 />
               }
@@ -343,10 +361,10 @@ export default function App() {
                   onAspectRatioChange={setAspectRatio}
                   layout={layout}
                   onLayoutChange={setLayout}
-                  rotation1={rotation1}
-                  rotation2={rotation2}
-                  onRotate1={handleRotate1}
-                  onRotate2={handleRotate2}
+                  transform1={transform1}
+                  transform2={transform2}
+                  onTransform1Change={handleTransform1Change}
+                  onTransform2Change={handleTransform2Change}
                   colorGrading={colorGrading}
                   onColorGradingChange={setColorGrading}
                   onReset={handleReset}
@@ -363,8 +381,8 @@ export default function App() {
                   layout={layout}
                   edgeStyle={edgeStyle}
                   phosphorColor={phosphorColor}
-                  rotation1={rotation1}
-                  rotation2={rotation2}
+                  transform1={transform1}
+                  transform2={transform2}
                   aspectRatio={aspectRatio}
                   filename={image1.originalName}
                   colorGrading={colorGrading}
@@ -389,7 +407,7 @@ export default function App() {
                   onCircleChange={setVideoCircle}
                   edgeStyle={edgeStyle}
                   phosphorColor={phosphorColor}
-                  rotation={videoRotation}
+                  transform={videoTransform}
                   colorGrading={colorGrading}
                 />
               }
@@ -402,8 +420,8 @@ export default function App() {
                   onPhosphorColorChange={handlePhosphorColorChange}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
-                  rotation={videoRotation}
-                  onRotate={handleVideoRotate}
+                  transform={videoTransform}
+                  onTransformChange={handleVideoTransformChange}
                   imageInfo={{ width: videoData.width, height: videoData.height }}
                   colorGrading={colorGrading}
                   onColorGradingChange={setColorGrading}
@@ -416,7 +434,7 @@ export default function App() {
                   circle={videoCircle}
                   edgeStyle={edgeStyle}
                   phosphorColor={phosphorColor}
-                  rotation={videoRotation}
+                  transform={videoTransform}
                   aspectRatio={aspectRatio}
                   colorGrading={colorGrading}
                 />

@@ -1,5 +1,14 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, applyTint, getTouchDistance, FEATHER_PERCENT, WHEEL_ZOOM_FACTOR } from '../utils/canvasUtils'
+import {
+  constrainCircle,
+  applyTint,
+  applyImageTransform,
+  getTransformedDimensions,
+  getTouchDistance,
+  DEFAULT_TRANSFORM,
+  FEATHER_PERCENT,
+  WHEEL_ZOOM_FACTOR,
+} from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20
 const HANDLE_HIT_RADIUS = 30
@@ -10,7 +19,7 @@ export default function VideoPreview({
   onCircleChange,
   edgeStyle,
   phosphorColor,
-  rotation = 0,
+  transform = DEFAULT_TRANSFORM,
   colorGrading,
 }) {
   const containerRef = useRef(null)
@@ -26,14 +35,12 @@ export default function VideoPreview({
 
   const { video, width, height, duration } = videoData
 
-  // Calculate rotated dimensions
-  const rotatedDims = useMemo(() => {
-    const isRotated90or270 = rotation === 90 || rotation === 270
-    return {
-      width: isRotated90or270 ? height : width,
-      height: isRotated90or270 ? width : height,
-    }
-  }, [width, height, rotation])
+  // Frame (crop space) dimensions: only the 90° rotation swaps width/height
+  const { rotation = 0, straighten = 0, flipH = false, flipV = false } = transform
+  const rotatedDims = useMemo(
+    () => getTransformedDimensions(width, height, { rotation }),
+    [width, height, rotation]
+  )
 
   // Calculate display scale. ResizeObserver also catches container changes
   // that aren't window resizes (e.g. the mobile settings sheet toggling).
@@ -68,10 +75,10 @@ export default function VideoPreview({
     canvas.width = displayWidth
     canvas.height = displayHeight
 
-    // Apply rotation and draw video frame
+    // Apply transform (rotate / straighten / flip) and draw video frame
     ctx.save()
     ctx.translate(displayWidth / 2, displayHeight / 2)
-    ctx.rotate((rotation * Math.PI) / 180)
+    applyImageTransform(ctx, { rotation, straighten, flipH, flipV })
 
     const drawWidth = width * scale
     const drawHeight = height * scale
@@ -154,7 +161,7 @@ export default function VideoPreview({
     ctx.arc(circleX, circleY, 6, 0, Math.PI * 2)
     ctx.fill()
     ctx.restore()
-  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, width, height, tint, tintStrength])
+  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, straighten, flipH, flipV, rotatedDims, width, height, tint, tintStrength])
 
   // Animation loop for live preview
   useEffect(() => {

@@ -58,7 +58,7 @@ export async function initFFmpeg(onProgress) {
  * @param {Object} circle - Circle selection {x, y, radius}
  * @param {string} edgeStyle - 'hard' or 'feathered'
  * @param {string} phosphorColor - 'green' or 'white'
- * @param {number} rotation - Rotation in degrees
+ * @param {Object} transform - Transform {rotation, straighten, flipH, flipV}
  * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
  * @param {Object} colorGrading - Color grading settings {brightness, contrast, saturation}
  * @param {function} onProgress - Progress callback (0-100, message)
@@ -69,7 +69,7 @@ export async function processVideo(
   circle,
   edgeStyle,
   phosphorColor,
-  rotation,
+  transform,
   aspectRatio,
   colorGrading,
   onProgress
@@ -129,7 +129,7 @@ export async function processVideo(
       circle,
       edgeStyle,
       phosphorColor,
-      rotation,
+      transform,
       aspectRatio,
       colorGrading
     )
