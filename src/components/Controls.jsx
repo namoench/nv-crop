@@ -122,6 +122,7 @@ export default function Controls({
   imageInfo,
   colorGrading,
   onColorGradingChange,
+  onReset,
 }) {
   const currentAspect = ASPECT_RATIOS[aspectRatio] || ASPECT_RATIOS['9:16']
 
@@ -273,6 +274,19 @@ export default function Controls({
               onChange={(v) => onColorGradingChange({ ...colorGrading, saturation: v })}
             />
           </Section>
+        </div>
+      )}
+
+      {/* Start over */}
+      {onReset && (
+        <div className="pt-4 border-t border-gray-800">
+          <button
+            type="button"
+            onClick={onReset}
+            className="w-full py-2 text-sm text-gray-400 hover:text-white active:text-white transition-colors"
+          >
+            Start Over
+          </button>
         </div>
       )}
     </div>

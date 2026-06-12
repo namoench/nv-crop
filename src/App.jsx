@@ -217,41 +217,23 @@ export default function App() {
 
   return (
     <div className={`app-h bg-nv-dark flex flex-col ${isEditing ? 'overflow-hidden' : ''}`}>
-      {/* Header */}
-      <header className="flex-none flex items-center justify-between px-4 py-2.5 border-b border-gray-800">
-        <div className="flex items-center gap-2.5">
-          <span
-            aria-hidden="true"
-            className="w-4 h-4 rounded-full flex-none"
-            style={{
-              background: 'radial-gradient(circle at 35% 35%, #b9ffb9 0%, #22c55e 45%, #052e10 100%)',
-              boxShadow: '0 0 12px rgba(34, 197, 94, 0.45)',
-            }}
-          />
-          <div>
-            <h1 className="text-base font-bold text-white leading-tight">NV Crop</h1>
-            {!isEditing && (
-              <p className="text-[11px] text-gray-500 leading-tight">Night vision photo cropper</p>
-            )}
-          </div>
-        </div>
-        {isEditing && (
-          <button
-            type="button"
-            onClick={handleReset}
-            className="text-sm text-gray-400 hover:text-white active:text-white transition-colors py-1 px-2 -mr-2"
-          >
-            Start Over
-          </button>
-        )}
-      </header>
-
       {/* Main content */}
       <main className={`flex-1 min-h-0 flex flex-col ${isEditing ? '' : 'overflow-y-auto'}`}>
         {/* Landing: intro, mode selector */}
         {showLanding && (
           <>
             <div className="max-w-lg mx-auto px-4 pt-8 pb-6 text-center">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <span
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 rounded-full flex-none"
+                  style={{
+                    background: 'radial-gradient(circle at 35% 35%, #b9ffb9 0%, #22c55e 45%, #052e10 100%)',
+                    boxShadow: '0 0 12px rgba(34, 197, 94, 0.45)',
+                  }}
+                />
+                <h1 className="text-xs font-semibold uppercase tracking-[0.2em] text-green-400">NV Crop</h1>
+              </div>
               <h2 className="text-2xl font-bold text-white leading-snug">
                 The night-vision look,{' '}
                 <span className="text-green-400">cropped clean.</span>
@@ -300,6 +282,7 @@ export default function App() {
                   imageInfo={{ width: imageData.width, height: imageData.height }}
                   colorGrading={colorGrading}
                   onColorGradingChange={setColorGrading}
+                  onReset={handleReset}
                 />
               }
               exportButton={
@@ -366,6 +349,7 @@ export default function App() {
                   onRotate2={handleRotate2}
                   colorGrading={colorGrading}
                   onColorGradingChange={setColorGrading}
+                  onReset={handleReset}
                 />
               }
               exportButton={
@@ -423,6 +407,7 @@ export default function App() {
                   imageInfo={{ width: videoData.width, height: videoData.height }}
                   colorGrading={colorGrading}
                   onColorGradingChange={setColorGrading}
+                  onReset={handleReset}
                 />
               }
               exportButton={
