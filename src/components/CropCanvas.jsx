@@ -20,25 +20,23 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     }
   }, [image, rotation])
 
-  // Calculate display scale to fit rotated image in container
+  // Calculate display scale to fit rotated image in container.
+  // ResizeObserver also catches container changes that aren't window resizes
+  // (e.g. the mobile settings sheet expanding/collapsing).
   useEffect(() => {
-    if (!containerRef.current || !image) return
+    const container = containerRef.current
+    if (!container || !image) return
 
     const updateScale = () => {
-      const container = containerRef.current
-      const containerWidth = container.clientWidth
-      const containerHeight = container.clientHeight
-
-      const scaleX = containerWidth / rotatedDims.width
-      const scaleY = containerHeight / rotatedDims.height
-      const newScale = Math.min(scaleX, scaleY, 1) // Don't scale up
-
-      setScale(newScale)
+      const scaleX = container.clientWidth / rotatedDims.width
+      const scaleY = container.clientHeight / rotatedDims.height
+      setScale(Math.min(scaleX, scaleY, 1)) // Don't scale up
     }
 
     updateScale()
-    window.addEventListener('resize', updateScale)
-    return () => window.removeEventListener('resize', updateScale)
+    const observer = new ResizeObserver(updateScale)
+    observer.observe(container)
+    return () => observer.disconnect()
   }, [image, rotatedDims])
 
   const tint = colorGrading?.tint ?? 'none'
@@ -53,8 +51,13 @@ export default function CropCanvas({ image, circle, onCircleChange, edgeStyle, p
     const displayWidth = rotatedDims.width * scale
     const displayHeight = rotatedDims.height * scale
 
-    canvas.width = displayWidth
-    canvas.height = displayHeight
+    // Render at device resolution, lay out at CSS size, draw in CSS units
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.round(displayWidth * dpr)
+    canvas.height = Math.round(displayHeight * dpr)
+    canvas.style.width = `${displayWidth}px`
+    canvas.style.height = `${displayHeight}px`
+    ctx.scale(dpr, dpr)
 
     // Apply rotation and draw image
     ctx.save()

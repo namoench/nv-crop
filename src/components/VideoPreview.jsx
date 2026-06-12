@@ -35,25 +35,22 @@ export default function VideoPreview({
     }
   }, [width, height, rotation])
 
-  // Calculate display scale
+  // Calculate display scale. ResizeObserver also catches container changes
+  // that aren't window resizes (e.g. the mobile settings sheet toggling).
   useEffect(() => {
-    if (!containerRef.current) return
+    const container = containerRef.current
+    if (!container) return
 
     const updateScale = () => {
-      const container = containerRef.current
-      const containerWidth = container.clientWidth
-      const containerHeight = container.clientHeight
-
-      const scaleX = containerWidth / rotatedDims.width
-      const scaleY = containerHeight / rotatedDims.height
-      const newScale = Math.min(scaleX, scaleY, 1)
-
-      setScale(newScale)
+      const scaleX = container.clientWidth / rotatedDims.width
+      const scaleY = container.clientHeight / rotatedDims.height
+      setScale(Math.min(scaleX, scaleY, 1))
     }
 
     updateScale()
-    window.addEventListener('resize', updateScale)
-    return () => window.removeEventListener('resize', updateScale)
+    const observer = new ResizeObserver(updateScale)
+    observer.observe(container)
+    return () => observer.disconnect()
   }, [rotatedDims])
 
   const tint = colorGrading?.tint ?? 'none'

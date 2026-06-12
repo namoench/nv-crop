@@ -32,3 +32,25 @@ html, body {
 .touch-canvas {
   touch-action: none;
 }
+
+/* Full viewport height with dvh fallback (iOS Safari toolbars) */
+.app-h {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Slim scrollbar for the settings panel */
+.panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #374151 transparent;
+}
+.panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

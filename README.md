@@ -12,6 +12,7 @@ Night vision photographers shooting through PVS-14s with iPhones often get refle
 - **Edge styles** - Hard edge or feathered edge with phosphor glow (green or white tube)
 - **Phosphor tint** - Remap image luminance to authentic green (P43) or white (P45) phosphor, with adjustable strength
 - **Color grading** - Brightness, contrast, and saturation sliders with live preview
+- **Mobile-first editor** - Full-height preview with a collapsible settings sheet on phones; sidebar layout on desktop
 - **Instant export** - PNG in 9:16 (1080x1920) or 1:1 (1080x1080); video exports as H.264 MP4
 
 ## Development
