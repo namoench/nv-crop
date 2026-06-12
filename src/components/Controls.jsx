@@ -176,7 +176,7 @@ export default function Controls({
 
         {/* Aspect ratio */}
         {onAspectRatioChange && (
-          <Row label="Output">
+          <Row label="Aspect ratio">
             <Segmented
               value={aspectRatio}
               onChange={onAspectRatioChange}
