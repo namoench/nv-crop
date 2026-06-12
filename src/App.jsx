@@ -10,7 +10,7 @@ import VideoPreview from './components/VideoPreview'
 import Controls from './components/Controls'
 import ExportButton from './components/ExportButton'
 import VideoExportButton from './components/VideoExportButton'
-import { getInitialCircle } from './utils/canvasUtils'
+import { getInitialCircle, DEFAULT_COLOR_GRADING } from './utils/canvasUtils'
 import { revokeImageUrl } from './utils/imageLoader'
 import { revokeVideoUrl } from './utils/videoLoader'
 
@@ -48,17 +48,13 @@ export default function App() {
   const [edgeStyle, setEdgeStyle] = useState('hard')
   const [phosphorColor, setPhosphorColor] = useState('green')
   const [aspectRatio, setAspectRatio] = useState('9:16')
-  const [colorGrading, setColorGrading] = useState({
-    brightness: 1,
-    contrast: 1,
-    saturation: 1,
-  })
+  const [colorGrading, setColorGrading] = useState({ ...DEFAULT_COLOR_GRADING })
 
   // Handler for edge style changes - apply presets when switching to feathered
   const handleEdgeStyleChange = useCallback((newStyle) => {
     setEdgeStyle(newStyle)
     if (newStyle === 'feathered') {
-      setColorGrading(COLOR_GRADING_PRESETS[phosphorColor])
+      setColorGrading(prev => ({ ...prev, ...COLOR_GRADING_PRESETS[phosphorColor] }))
     }
   }, [phosphorColor])
 
@@ -66,7 +62,7 @@ export default function App() {
   const handlePhosphorColorChange = useCallback((newColor) => {
     setPhosphorColor(newColor)
     if (edgeStyle === 'feathered') {
-      setColorGrading(COLOR_GRADING_PRESETS[newColor])
+      setColorGrading(prev => ({ ...prev, ...COLOR_GRADING_PRESETS[newColor] }))
     }
   }, [edgeStyle])
 
@@ -186,7 +182,7 @@ export default function App() {
     setEdgeStyle('hard')
     setPhosphorColor('green')
     setLayout('vertical')
-    setColorGrading({ brightness: 1, contrast: 1, saturation: 1 })
+    setColorGrading({ ...DEFAULT_COLOR_GRADING })
   }, [mode, imageData, image1, image2, videoData])
 
   const hasSingleImage = imageData !== null
@@ -229,7 +225,7 @@ export default function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <p>
-                    <span className="text-gray-400 font-medium">Performance varies by device.</span> Processing happens locally, so speed depends on your device's capabilities.
+                    <span className="text-gray-400 font-medium">Performance varies by device.</span> Processing happens locally, so speed depends on your device&apos;s capabilities.
                   </p>
                 </div>
                 {mode === 'video' && (
@@ -238,7 +234,7 @@ export default function App() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <p>
-                      <span className="text-yellow-500 font-medium">Chrome users:</span> Chrome's aggressive memory management can cause video processing to fail or run slowly. Safari or Firefox may work better for video.
+                      <span className="text-yellow-500 font-medium">Chrome users:</span> Chrome&apos;s aggressive memory management can cause video processing to fail or run slowly. Safari or Firefox may work better for video.
                     </p>
                   </div>
                 )}

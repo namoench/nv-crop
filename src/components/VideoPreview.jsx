@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
+import { constrainCircle, applyTint, getTouchDistance, FEATHER_PERCENT, WHEEL_ZOOM_FACTOR } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 20
 const HANDLE_HIT_RADIUS = 30
@@ -56,6 +56,9 @@ export default function VideoPreview({
     return () => window.removeEventListener('resize', updateScale)
   }, [rotatedDims])
 
+  const tint = colorGrading?.tint ?? 'none'
+  const tintStrength = colorGrading?.tintStrength ?? 1
+
   // Draw preview frame
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current
@@ -77,6 +80,9 @@ export default function VideoPreview({
     const drawHeight = height * scale
     ctx.drawImage(video, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
+
+    // Phosphor tint (before overlay/handles so UI chrome stays untinted)
+    applyTint(ctx, displayWidth, displayHeight, tint, tintStrength)
 
     // Draw darkened overlay outside circle
     const circleX = circle.x * scale
@@ -151,7 +157,7 @@ export default function VideoPreview({
     ctx.arc(circleX, circleY, 6, 0, Math.PI * 2)
     ctx.fill()
     ctx.restore()
-  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, width, height])
+  }, [video, circle, scale, edgeStyle, phosphorColor, rotation, rotatedDims, width, height, tint, tintStrength])
 
   // Animation loop for live preview
   useEffect(() => {
@@ -195,6 +201,7 @@ export default function VideoPreview({
   // Handle seek
   const handleSeek = useCallback((e) => {
     const newTime = parseFloat(e.target.value)
+    // eslint-disable-next-line react-hooks/immutability -- seeking a media element is inherently a mutation
     video.currentTime = newTime
     setCurrentTime(newTime)
   }, [video])
@@ -299,22 +306,32 @@ export default function VideoPreview({
     handlePointerEnd()
   }, [handlePointerEnd])
 
-  // Touch events
+  // Touch events (two fingers pinch-resizes the circle)
   const handleTouchStart = useCallback((e) => {
     e.preventDefault()
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      setDragging('pinch')
+      setDragStart({ pinchDist: getTouchDistance(e.touches), startRadius: circle.radius })
+    } else if (e.touches.length === 1) {
       const touch = e.touches[0]
       handlePointerStart(touch.clientX, touch.clientY)
     }
-  }, [handlePointerStart])
+  }, [handlePointerStart, circle])
 
   const handleTouchMove = useCallback((e) => {
     e.preventDefault()
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2 && dragging === 'pinch' && dragStart) {
+      const ratio = getTouchDistance(e.touches) / dragStart.pinchDist
+      onCircleChange(constrainCircle(
+        { ...circle, radius: dragStart.startRadius * ratio },
+        rotatedDims.width,
+        rotatedDims.height
+      ))
+    } else if (e.touches.length === 1) {
       const touch = e.touches[0]
       handlePointerMove(touch.clientX, touch.clientY)
     }
-  }, [handlePointerMove])
+  }, [handlePointerMove, dragging, dragStart, circle, rotatedDims, onCircleChange])
 
   const handleTouchEnd = useCallback((e) => {
     e.preventDefault()
@@ -332,6 +349,25 @@ export default function VideoPreview({
       }
     }
   }, [dragging, handleMouseMove, handleMouseUp])
+
+  // Scroll wheel resizes the circle (native listener: React's onWheel is passive)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const handleWheel = (e) => {
+      e.preventDefault()
+      const factor = e.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR
+      onCircleChange(constrainCircle(
+        { ...circle, radius: circle.radius * factor },
+        rotatedDims.width,
+        rotatedDims.height
+      ))
+    }
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', handleWheel)
+  }, [circle, rotatedDims, onCircleChange])
 
   // Format time as mm:ss
   const formatTime = (time) => {

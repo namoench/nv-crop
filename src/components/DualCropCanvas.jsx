@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { constrainCircle, FEATHER_PERCENT } from '../utils/canvasUtils'
+import { constrainCircle, applyTint, getTouchDistance, FEATHER_PERCENT, WHEEL_ZOOM_FACTOR } from '../utils/canvasUtils'
 
 const HANDLE_RADIUS = 16
 const HANDLE_HIT_RADIUS = 25
@@ -40,6 +40,9 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     return () => window.removeEventListener('resize', updateScale)
   }, [image, rotatedDims])
 
+  const tint = colorGrading?.tint ?? 'none'
+  const tintStrength = colorGrading?.tintStrength ?? 1
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !image) return
@@ -59,6 +62,9 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     const drawHeight = image.height * scale
     ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
     ctx.restore()
+
+    // Phosphor tint (before overlay/handles so UI chrome stays untinted)
+    applyTint(ctx, displayWidth, displayHeight, tint, tintStrength)
 
     const circleX = circle.x * scale
     const circleY = circle.y * scale
@@ -128,7 +134,7 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     ctx.fill()
     ctx.restore()
 
-  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius, rotation, rotatedDims])
+  }, [image, circle, scale, edgeStyle, phosphorColor, sharedRadius, rotation, rotatedDims, tint, tintStrength])
 
   const clientToImage = useCallback((clientX, clientY) => {
     const canvas = canvasRef.current
@@ -158,6 +164,12 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
     return Math.abs(dist - sharedRadius) < HANDLE_HIT_RADIUS / scale
   }, [circle, sharedRadius, scale])
 
+  const clampRadius = useCallback((radius) => {
+    const minRadius = 50
+    const maxRadius = Math.min(rotatedDims.width, rotatedDims.height) / 2
+    return Math.max(minRadius, Math.min(maxRadius, radius))
+  }, [rotatedDims])
+
   const handlePointerStart = useCallback((x, y) => {
     const pos = clientToImage(x, y)
     if (isNearHandle(pos.x, pos.y) || isNearEdge(pos.x, pos.y)) {
@@ -184,12 +196,9 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
       onCircleChange({ x: newCircle.x, y: newCircle.y })
     } else if (dragging === 'edge') {
       const dist = Math.sqrt((pos.x - circle.x) ** 2 + (pos.y - circle.y) ** 2)
-      const minRadius = 50
-      const maxRadius = Math.min(rotatedDims.width, rotatedDims.height) / 2
-      const newRadius = Math.max(minRadius, Math.min(maxRadius, dist))
-      onRadiusChange(newRadius)
+      onRadiusChange(clampRadius(dist))
     }
-  }, [dragging, dragStart, clientToImage, circle, sharedRadius, rotatedDims, onCircleChange, onRadiusChange])
+  }, [dragging, dragStart, clientToImage, circle, sharedRadius, rotatedDims, onCircleChange, onRadiusChange, clampRadius])
 
   const handlePointerEnd = useCallback(() => {
     setDragging(null)
@@ -211,17 +220,23 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
 
   const handleTouchStart = useCallback((e) => {
     e.preventDefault()
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      setDragging('pinch')
+      setDragStart({ pinchDist: getTouchDistance(e.touches), startRadius: sharedRadius })
+    } else if (e.touches.length === 1) {
       handlePointerStart(e.touches[0].clientX, e.touches[0].clientY)
     }
-  }, [handlePointerStart])
+  }, [handlePointerStart, sharedRadius])
 
   const handleTouchMove = useCallback((e) => {
     e.preventDefault()
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2 && dragging === 'pinch' && dragStart) {
+      const ratio = getTouchDistance(e.touches) / dragStart.pinchDist
+      onRadiusChange(clampRadius(dragStart.startRadius * ratio))
+    } else if (e.touches.length === 1) {
       handlePointerMove(e.touches[0].clientX, e.touches[0].clientY)
     }
-  }, [handlePointerMove])
+  }, [handlePointerMove, dragging, dragStart, onRadiusChange, clampRadius])
 
   const handleTouchEnd = useCallback((e) => {
     e.preventDefault()
@@ -238,6 +253,21 @@ function SingleCanvas({ image, circle, onCircleChange, edgeStyle, phosphorColor,
       }
     }
   }, [dragging, handleMouseMove, handleMouseUp])
+
+  // Scroll wheel resizes the shared circle (native listener: React's onWheel is passive)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const handleWheel = (e) => {
+      e.preventDefault()
+      const factor = e.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR
+      onRadiusChange(clampRadius(sharedRadius * factor))
+    }
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', handleWheel)
+  }, [sharedRadius, onRadiusChange, clampRadius])
 
   if (!image) return null
 

@@ -6,12 +6,13 @@ Night vision photographers shooting through PVS-14s with iPhones often get refle
 
 ## Features
 
-- **Drag & drop upload** - Supports JPG, PNG, HEIC, and HEIF formats
-- **HEIC conversion** - Automatically converts iPhone HEIC photos
-- **Interactive circle selector** - Drag to reposition, resize from edge handle
-- **Edge styles** - Hard edge or feathered (vignette) edge
-- **Mobile-friendly** - Touch support for repositioning and resizing
-- **Instant export** - Download as PNG in 9:16 format (1080x1920)
+- **Drag & drop upload** - Supports JPG, PNG, HEIC/HEIF, and DNG/ProRAW formats
+- **Three modes** - Single photo, dual photo (stacked or side-by-side), and video
+- **Interactive circle selector** - Drag to reposition; resize via edge handle, two-finger pinch, or scroll wheel
+- **Edge styles** - Hard edge or feathered edge with phosphor glow (green or white tube)
+- **Phosphor tint** - Remap image luminance to authentic green (P43) or white (P45) phosphor, with adjustable strength
+- **Color grading** - Brightness, contrast, and saturation sliders with live preview
+- **Instant export** - PNG in 9:16 (1080x1920) or 1:1 (1080x1080); video exports as H.264 MP4
 
 ## Development
 

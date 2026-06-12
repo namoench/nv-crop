@@ -1,4 +1,41 @@
-import { ASPECT_RATIOS } from '../utils/canvasUtils'
+import { ASPECT_RATIOS, DEFAULT_COLOR_GRADING } from '../utils/canvasUtils'
+
+const SLIDER_CLASS = `flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
+  [&::-webkit-slider-thumb]:appearance-none
+  [&::-webkit-slider-thumb]:w-5
+  [&::-webkit-slider-thumb]:h-5
+  [&::-webkit-slider-thumb]:rounded-full
+  [&::-webkit-slider-thumb]:bg-nv-green
+  [&::-webkit-slider-thumb]:border-2
+  [&::-webkit-slider-thumb]:border-white
+  [&::-webkit-slider-thumb]:shadow-md
+  [&::-webkit-slider-thumb]:cursor-pointer
+  [&::-moz-range-thumb]:w-5
+  [&::-moz-range-thumb]:h-5
+  [&::-moz-range-thumb]:rounded-full
+  [&::-moz-range-thumb]:bg-nv-green
+  [&::-moz-range-thumb]:border-2
+  [&::-moz-range-thumb]:border-white
+  [&::-moz-range-thumb]:cursor-pointer`
+
+function GradingSlider({ label, min, max, value, onChange }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-gray-400 w-20">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
+        className={SLIDER_CLASS}
+      />
+      <span className="text-xs text-gray-500 w-12 text-right">{Math.round(value * 100)}%</span>
+    </div>
+  )
+}
 
 export default function Controls({
   mode,
@@ -264,84 +301,79 @@ export default function Controls({
           </div>
         )}
 
-        {/* Color grading sliders */}
+        {/* Color grading */}
         {colorGrading && onColorGradingChange && (
           <div className="space-y-3 pt-2 border-t border-gray-700">
-            <div className="text-xs text-yellow-500 mb-2">
-              DEBUG: B={colorGrading.brightness.toFixed(2)} C={colorGrading.contrast.toFixed(2)} S={colorGrading.saturation.toFixed(2)}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Color</span>
+              <button
+                type="button"
+                onClick={() => onColorGradingChange({ ...DEFAULT_COLOR_GRADING })}
+                className="text-xs text-gray-500 hover:text-white transition-colors"
+              >
+                Reset
+              </button>
             </div>
+
+            {/* Phosphor tint */}
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400 w-20">Brightness</span>
-              <input
-                type="range"
-                min="0.5"
-                max="1.5"
-                step="0.01"
-                value={colorGrading.brightness}
-                onInput={(e) => onColorGradingChange({ ...colorGrading, brightness: parseFloat(e.target.value) })}
-                onChange={(e) => onColorGradingChange({ ...colorGrading, brightness: parseFloat(e.target.value) })}
-                style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
-                className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
-                         [&::-webkit-slider-thumb]:appearance-none
-                         [&::-webkit-slider-thumb]:w-5
-                         [&::-webkit-slider-thumb]:h-5
-                         [&::-webkit-slider-thumb]:rounded-full
-                         [&::-webkit-slider-thumb]:bg-nv-green
-                         [&::-webkit-slider-thumb]:border-2
-                         [&::-webkit-slider-thumb]:border-white
-                         [&::-webkit-slider-thumb]:shadow-md
-                         [&::-webkit-slider-thumb]:cursor-pointer"
-              />
-              <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.brightness * 100)}%</span>
+              <span className="text-sm text-gray-400 w-20">Tint</span>
+              <div className="flex bg-nv-dark rounded-lg p-1 flex-1">
+                {[
+                  { value: 'none', label: 'None', dot: null },
+                  { value: 'green', label: 'Green', dot: 'bg-green-500' },
+                  { value: 'white', label: 'B&W', dot: 'bg-gray-200' },
+                ].map(({ value, label, dot }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => onColorGradingChange({ ...colorGrading, tint: value })}
+                    className={`
+                      flex-1 py-2 px-2 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
+                      ${(colorGrading.tint || 'none') === value
+                        ? 'bg-gray-700 text-white'
+                        : 'text-gray-500 hover:text-gray-300'
+                      }
+                    `}
+                  >
+                    {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />}
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400 w-20">Contrast</span>
-              <input
-                type="range"
-                min="0.5"
-                max="2.0"
-                step="0.01"
-                value={colorGrading.contrast}
-                onInput={(e) => onColorGradingChange({ ...colorGrading, contrast: parseFloat(e.target.value) })}
-                onChange={(e) => onColorGradingChange({ ...colorGrading, contrast: parseFloat(e.target.value) })}
-                style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
-                className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
-                         [&::-webkit-slider-thumb]:appearance-none
-                         [&::-webkit-slider-thumb]:w-5
-                         [&::-webkit-slider-thumb]:h-5
-                         [&::-webkit-slider-thumb]:rounded-full
-                         [&::-webkit-slider-thumb]:bg-nv-green
-                         [&::-webkit-slider-thumb]:border-2
-                         [&::-webkit-slider-thumb]:border-white
-                         [&::-webkit-slider-thumb]:shadow-md
-                         [&::-webkit-slider-thumb]:cursor-pointer"
-              />
-              <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.contrast * 100)}%</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400 w-20">Saturation</span>
-              <input
-                type="range"
+
+            {colorGrading.tint && colorGrading.tint !== 'none' && (
+              <GradingSlider
+                label="Strength"
                 min="0"
-                max="2.0"
-                step="0.01"
-                value={colorGrading.saturation}
-                onInput={(e) => onColorGradingChange({ ...colorGrading, saturation: parseFloat(e.target.value) })}
-                onChange={(e) => onColorGradingChange({ ...colorGrading, saturation: parseFloat(e.target.value) })}
-                style={{ WebkitAppearance: 'none', touchAction: 'manipulation' }}
-                className="flex-1 h-2 bg-gray-700 rounded-full cursor-pointer
-                         [&::-webkit-slider-thumb]:appearance-none
-                         [&::-webkit-slider-thumb]:w-5
-                         [&::-webkit-slider-thumb]:h-5
-                         [&::-webkit-slider-thumb]:rounded-full
-                         [&::-webkit-slider-thumb]:bg-nv-green
-                         [&::-webkit-slider-thumb]:border-2
-                         [&::-webkit-slider-thumb]:border-white
-                         [&::-webkit-slider-thumb]:shadow-md
-                         [&::-webkit-slider-thumb]:cursor-pointer"
+                max="1"
+                value={colorGrading.tintStrength ?? 1}
+                onChange={(v) => onColorGradingChange({ ...colorGrading, tintStrength: v })}
               />
-              <span className="text-xs text-gray-500 w-12 text-right">{Math.round(colorGrading.saturation * 100)}%</span>
-            </div>
+            )}
+
+            <GradingSlider
+              label="Brightness"
+              min="0.5"
+              max="1.5"
+              value={colorGrading.brightness}
+              onChange={(v) => onColorGradingChange({ ...colorGrading, brightness: v })}
+            />
+            <GradingSlider
+              label="Contrast"
+              min="0.5"
+              max="2.0"
+              value={colorGrading.contrast}
+              onChange={(v) => onColorGradingChange({ ...colorGrading, contrast: v })}
+            />
+            <GradingSlider
+              label="Saturation"
+              min="0"
+              max="2.0"
+              value={colorGrading.saturation}
+              onChange={(v) => onColorGradingChange({ ...colorGrading, saturation: v })}
+            />
           </div>
         )}
 

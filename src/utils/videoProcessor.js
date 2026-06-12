@@ -1,15 +1,11 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
-import {
-  getOutputDimensions,
-  MAX_CIRCLE_PERCENT,
-  FEATHER_PERCENT,
-  applyColorGrading,
-} from './canvasUtils'
+import { renderCroppedImage } from './canvasUtils'
 
 let ffmpeg = null
 let ffmpegLoading = false
 let ffmpegLoadPromise = null
+let encodeProgressCallback = null
 
 /**
  * Initialize FFmpeg (lazy-loaded singleton)
@@ -31,12 +27,8 @@ export async function initFFmpeg(onProgress) {
 
     ffmpeg = new FFmpeg()
 
-    ffmpeg.on('log', ({ message }) => {
-      console.log('[FFmpeg]', message)
-    })
-
     ffmpeg.on('progress', ({ progress }) => {
-      // This fires during encoding
+      encodeProgressCallback?.(progress)
     })
 
     try {
@@ -58,197 +50,6 @@ export async function initFFmpeg(onProgress) {
   })()
 
   return ffmpegLoadPromise
-}
-
-/**
- * Get rotated dimensions
- */
-function getRotatedDimensions(width, height, rotation) {
-  const isRotated90or270 = rotation === 90 || rotation === 270
-  return {
-    width: isRotated90or270 ? height : width,
-    height: isRotated90or270 ? width : height,
-  }
-}
-
-/**
- * Draw rotated canvas
- */
-function drawRotatedCanvas(sourceCanvas, rotation) {
-  const { width, height } = getRotatedDimensions(
-    sourceCanvas.width,
-    sourceCanvas.height,
-    rotation
-  )
-  const tempCanvas = document.createElement('canvas')
-  tempCanvas.width = width
-  tempCanvas.height = height
-  const tempCtx = tempCanvas.getContext('2d')
-
-  tempCtx.save()
-  tempCtx.translate(width / 2, height / 2)
-  tempCtx.rotate((rotation * Math.PI) / 180)
-  tempCtx.drawImage(
-    sourceCanvas,
-    -sourceCanvas.width / 2,
-    -sourceCanvas.height / 2
-  )
-  tempCtx.restore()
-
-  return tempCanvas
-}
-
-/**
- * Render a single frame with NV crop effect
- */
-function renderCroppedFrame(
-  frameCanvas,
-  circle,
-  edgeStyle,
-  phosphorColor,
-  rotation,
-  outputWidth,
-  outputHeight,
-  colorGrading = null
-) {
-  const outputCanvas = document.createElement('canvas')
-  outputCanvas.width = outputWidth
-  outputCanvas.height = outputHeight
-
-  const ctx = outputCanvas.getContext('2d')
-
-  // Fill black background
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, outputWidth, outputHeight)
-
-  // Apply rotation if needed
-  let sourceCanvas = frameCanvas
-  if (rotation !== 0) {
-    sourceCanvas = drawRotatedCanvas(frameCanvas, rotation)
-  }
-
-  // Apply color grading using pixel manipulation (works on iOS Safari)
-  if (colorGrading) {
-    const tempCtx = sourceCanvas.getContext('2d')
-    applyColorGrading(tempCtx, sourceCanvas.width, sourceCanvas.height, colorGrading)
-  }
-
-  // Calculate output circle size
-  const smallerDim = Math.min(outputWidth, outputHeight)
-  const maxOutputRadius = (smallerDim * MAX_CIRCLE_PERCENT) / 2
-  const sourceRadius = circle.radius
-  const outputRadius = maxOutputRadius
-  const scale = outputRadius / sourceRadius
-
-  const outputCenterX = outputWidth / 2
-  const outputCenterY = outputHeight / 2
-
-  // Source region to capture
-  const sourceX = circle.x - sourceRadius
-  const sourceY = circle.y - sourceRadius
-  const sourceSize = sourceRadius * 2
-
-  // Output region
-  const outputSize = outputRadius * 2
-  const outputX = outputCenterX - outputRadius
-  const outputY = outputCenterY - outputRadius
-
-  ctx.save()
-
-  if (edgeStyle === 'feathered') {
-    // Hard clip first
-    ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.clip()
-
-    ctx.drawImage(
-      sourceCanvas,
-      sourceX,
-      sourceY,
-      sourceSize,
-      sourceSize,
-      outputX,
-      outputY,
-      outputSize,
-      outputSize
-    )
-
-    ctx.restore()
-    ctx.save()
-
-    // Add phosphor glow
-    const glowWidth = outputRadius * FEATHER_PERCENT
-    const innerGlowRadius = outputRadius - glowWidth
-
-    const glowGradient = ctx.createRadialGradient(
-      outputCenterX,
-      outputCenterY,
-      innerGlowRadius,
-      outputCenterX,
-      outputCenterY,
-      outputRadius
-    )
-
-    if (phosphorColor === 'green') {
-      glowGradient.addColorStop(0, 'rgba(0, 255, 0, 0)')
-      glowGradient.addColorStop(0.3, 'rgba(0, 255, 0, 0.08)')
-      glowGradient.addColorStop(0.7, 'rgba(0, 200, 0, 0.15)')
-      glowGradient.addColorStop(1, 'rgba(0, 150, 0, 0.05)')
-    } else {
-      glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0)')
-      glowGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.06)')
-      glowGradient.addColorStop(0.7, 'rgba(240, 240, 230, 0.12)')
-      glowGradient.addColorStop(1, 'rgba(220, 220, 210, 0.04)')
-    }
-
-    ctx.globalCompositeOperation = 'screen'
-    ctx.fillStyle = glowGradient
-    ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.fill()
-
-    ctx.restore()
-    ctx.save()
-
-    // Fade at edge
-    const fadeGradient = ctx.createRadialGradient(
-      outputCenterX,
-      outputCenterY,
-      outputRadius - glowWidth * 0.5,
-      outputCenterX,
-      outputCenterY,
-      outputRadius
-    )
-    fadeGradient.addColorStop(0, 'rgba(0, 0, 0, 0)')
-    fadeGradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)')
-
-    ctx.globalCompositeOperation = 'source-atop'
-    ctx.fillStyle = fadeGradient
-    ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.fill()
-  } else {
-    // Hard edge
-    ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.clip()
-
-    ctx.drawImage(
-      sourceCanvas,
-      sourceX,
-      sourceY,
-      sourceSize,
-      sourceSize,
-      outputX,
-      outputY,
-      outputSize,
-      outputSize
-    )
-  }
-
-  ctx.restore()
-
-  return outputCanvas
 }
 
 /**
@@ -274,7 +75,6 @@ export async function processVideo(
   onProgress
 ) {
   const { video, file, duration, fps } = videoData
-  const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
 
   // Initialize FFmpeg
   const ff = await initFFmpeg(onProgress)
@@ -321,15 +121,16 @@ export async function processVideo(
     // Draw frame to canvas
     frameCtx.drawImage(video, 0, 0)
 
-    // Apply NV crop effect
-    const processedCanvas = renderCroppedFrame(
+    // Apply NV crop effect (same renderer as image export)
+    const processedCanvas = document.createElement('canvas')
+    renderCroppedImage(
+      processedCanvas,
       frameCanvas,
       circle,
       edgeStyle,
       phosphorColor,
       rotation,
-      outputWidth,
-      outputHeight,
+      aspectRatio,
       colorGrading
     )
 
@@ -385,7 +186,17 @@ export async function processVideo(
 
   encodeArgs.push('-y', 'output.mp4')
 
-  await ff.exec(encodeArgs)
+  // Report real encode progress (55-90%) via FFmpeg's progress event
+  encodeProgressCallback = (progress) => {
+    const pct = 55 + Math.max(0, Math.min(1, progress)) * 35
+    onProgress?.(pct, 'Encoding video...')
+  }
+
+  try {
+    await ff.exec(encodeArgs)
+  } finally {
+    encodeProgressCallback = null
+  }
 
   onProgress?.(90, 'Finalizing...')
 

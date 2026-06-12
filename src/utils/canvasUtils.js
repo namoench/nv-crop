@@ -30,6 +30,26 @@ export const MAX_CIRCLE_PERCENT = 0.9
 export const FEATHER_PERCENT = 0.025
 
 /**
+ * Default color grading settings
+ */
+export const DEFAULT_COLOR_GRADING = {
+  brightness: 1,
+  contrast: 1,
+  saturation: 1,
+  tint: 'none',
+  tintStrength: 1,
+}
+
+/**
+ * Phosphor tint colors. Luminance is multiplied by this color, so the
+ * tint color itself is what pure white maps to.
+ */
+export const TINT_COLORS = {
+  green: 'rgb(120, 255, 120)', // P43 green phosphor
+  white: 'rgb(225, 235, 245)', // P45 white phosphor (slightly cool)
+}
+
+/**
  * Apply color grading to canvas using manual pixel manipulation
  * This works on all browsers including iOS Safari where ctx.filter is buggy
  * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -47,51 +67,60 @@ export function applyColorGrading(ctx, width, height, colorGrading) {
   const imageData = ctx.getImageData(0, 0, width, height)
   const data = imageData.data
 
-  for (let i = 0; i < data.length; i += 4) {
-    let r = data[i]
-    let g = data[i + 1]
-    let b = data[i + 2]
+  // Brightness (multiply) + contrast (scale around midpoint) collapse into a
+  // single per-channel lookup table; Uint8ClampedArray clamps and rounds for us
+  const lut = new Uint8ClampedArray(256)
+  for (let v = 0; v < 256; v++) {
+    lut[v] = (v * brightness - 128) * contrast + 128
+  }
 
-    // Apply brightness (multiply)
-    r = r * brightness
-    g = g * brightness
-    b = b * brightness
+  if (saturation === 1) {
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = lut[data[i]]
+      data[i + 1] = lut[data[i + 1]]
+      data[i + 2] = lut[data[i + 2]]
+    }
+  } else {
+    for (let i = 0; i < data.length; i += 4) {
+      const r = lut[data[i]]
+      const g = lut[data[i + 1]]
+      const b = lut[data[i + 2]]
 
-    // Apply contrast (scale around midpoint)
-    // Formula: output = (input - 128) * contrast + 128
-    r = (r - 128) * contrast + 128
-    g = (g - 128) * contrast + 128
-    b = (b - 128) * contrast + 128
-
-    // Apply saturation (interpolate toward grayscale)
-    const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    r = gray + saturation * (r - gray)
-    g = gray + saturation * (g - gray)
-    b = gray + saturation * (b - gray)
-
-    // Clamp values to 0-255 and round
-    data[i] = Math.round(Math.max(0, Math.min(255, r)))
-    data[i + 1] = Math.round(Math.max(0, Math.min(255, g)))
-    data[i + 2] = Math.round(Math.max(0, Math.min(255, b)))
+      // Saturation (interpolate toward grayscale, same weights as CSS saturate())
+      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b
+      data[i] = gray + saturation * (r - gray)
+      data[i + 1] = gray + saturation * (g - gray)
+      data[i + 2] = gray + saturation * (b - gray)
+    }
   }
 
   ctx.putImageData(imageData, 0, 0)
 }
 
 /**
- * Build CSS filter string from color grading settings (for browsers that support it)
- * @param {Object} colorGrading - Color grading settings {brightness, contrast, saturation}
- * @returns {string} CSS filter string or 'none'
- * @deprecated Use applyColorGrading for cross-browser support
+ * Apply a phosphor tint to canvas content using blend modes.
+ * Desaturates (preserving luminosity), then multiplies by the phosphor color,
+ * so luminance maps onto the phosphor's response. Blend modes work everywhere
+ * including iOS Safari, and behave identically in preview and export.
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} width - Canvas width
+ * @param {number} height - Canvas height
+ * @param {string} tint - 'none', 'green', or 'white'
+ * @param {number} strength - Blend amount 0-1
  */
-export function buildFilterString(colorGrading) {
-  if (!colorGrading) return 'none'
-  const { brightness = 1, contrast = 1, saturation = 1 } = colorGrading
-  const filters = []
-  if (brightness !== 1) filters.push(`brightness(${brightness})`)
-  if (contrast !== 1) filters.push(`contrast(${contrast})`)
-  if (saturation !== 1) filters.push(`saturate(${saturation})`)
-  return filters.length > 0 ? filters.join(' ') : 'none'
+export function applyTint(ctx, width, height, tint, strength = 1) {
+  const color = TINT_COLORS[tint]
+  if (!color || strength <= 0) return
+
+  ctx.save()
+  ctx.globalAlpha = strength
+  ctx.globalCompositeOperation = 'saturation'
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, width, height)
+  ctx.globalCompositeOperation = 'multiply'
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, width, height)
+  ctx.restore()
 }
 
 /**
@@ -106,127 +135,71 @@ function getRotatedDimensions(width, height, rotation) {
 }
 
 /**
- * Apply color grading to an image and return a new canvas
+ * Extract the circle's bounding square from the source into a small canvas
+ * at output resolution, applying rotation in the same pass. Doing this before
+ * color grading means the per-pixel work runs on ~1MP instead of the full
+ * source resolution (which can be 48MP for ProRAW).
  * @param {HTMLImageElement|HTMLCanvasElement} source - Source image or canvas
- * @param {Object} colorGrading - Color grading settings
- * @returns {HTMLCanvasElement} New canvas with color grading applied
+ * @param {Object} circle - Circle {x, y, radius} in rotated-image coordinates
+ * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
+ * @param {number} outputSize - Side length of the result canvas in pixels
+ * @returns {HTMLCanvasElement} outputSize x outputSize canvas of the circle region
  */
-function applyColorGradingToSource(source, colorGrading) {
+function extractCircleRegion(source, circle, rotation, outputSize) {
   const canvas = document.createElement('canvas')
-  canvas.width = source.width
-  canvas.height = source.height
+  canvas.width = outputSize
+  canvas.height = outputSize
   const ctx = canvas.getContext('2d')
-  ctx.drawImage(source, 0, 0)
-  applyColorGrading(ctx, canvas.width, canvas.height, colorGrading)
+
+  const w = source.width
+  const h = source.height
+  const rotated = getRotatedDimensions(w, h, rotation)
+  const scale = outputSize / (circle.radius * 2)
+
+  // Map (circle.x, circle.y) in rotated-image space to the canvas center,
+  // scaled so the circle's bounding square fills the canvas
+  ctx.save()
+  ctx.translate(outputSize / 2, outputSize / 2)
+  ctx.scale(scale, scale)
+  ctx.translate(rotated.width / 2 - circle.x, rotated.height / 2 - circle.y)
+  ctx.rotate((rotation * Math.PI) / 180)
+  ctx.drawImage(source, -w / 2, -h / 2)
+  ctx.restore()
+
   return canvas
 }
 
 /**
- * Draw rotated image to a temporary canvas
+ * Render a single circle crop to a specific position on canvas
  */
-function drawRotatedImage(image, rotation) {
-  const { width, height } = getRotatedDimensions(image.width, image.height, rotation)
-  const tempCanvas = document.createElement('canvas')
-  tempCanvas.width = width
-  tempCanvas.height = height
-  const tempCtx = tempCanvas.getContext('2d')
+function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, rotation = 0, colorGrading = null) {
+  const outputSize = Math.round(outputRadius * 2)
+  const region = extractCircleRegion(image, { x: circle.x, y: circle.y, radius }, rotation, outputSize)
 
-  tempCtx.save()
-  tempCtx.translate(width / 2, height / 2)
-  tempCtx.rotate((rotation * Math.PI) / 180)
-  tempCtx.drawImage(image, -image.width / 2, -image.height / 2)
-  tempCtx.restore()
+  // Tint first, then grade - matches the preview, where the brightness/
+  // contrast/saturation CSS filter is applied on top of the tinted canvas
+  const regionCtx = region.getContext('2d')
+  applyTint(regionCtx, outputSize, outputSize, colorGrading?.tint, colorGrading?.tintStrength)
+  applyColorGrading(regionCtx, outputSize, outputSize, colorGrading)
 
-  return tempCanvas
-}
-
-/**
- * Draw the source image with circular crop onto a canvas
- * @param {HTMLCanvasElement} canvas - The canvas to draw on
- * @param {HTMLImageElement} image - The source image
- * @param {Object} circle - Circle selection {x, y, radius} in image coordinates
- * @param {string} edgeStyle - 'hard' or 'feathered'
- * @param {string} phosphorColor - 'green' or 'white'
- * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
- * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
- */
-export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0, aspectRatio = '9:16', colorGrading = null) {
-  const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
-  const ctx = canvas.getContext('2d')
-  canvas.width = outputWidth
-  canvas.height = outputHeight
-
-  // Fill with black background
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, outputWidth, outputHeight)
-
-  // Get rotated source image if rotation is applied
-  let sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
-
-  // Apply color grading to source image (uses pixel manipulation for iOS Safari compatibility)
-  if (colorGrading) {
-    sourceImage = applyColorGradingToSource(sourceImage, colorGrading)
-  }
-
-  // Calculate the output circle size
-  // Scale the circle proportionally, but cap at MAX_CIRCLE_PERCENT of smaller dimension
-  const smallerDim = Math.min(outputWidth, outputHeight)
-  const maxOutputRadius = (smallerDim * MAX_CIRCLE_PERCENT) / 2
-
-  // Calculate how much of the source image we're capturing
-  // The circle.radius is in source image coordinates
-  // We want to scale it to fit nicely in the output
-  const sourceRadius = circle.radius
-  const outputRadius = Math.min(maxOutputRadius, maxOutputRadius)
-
-  // Scale factor from source to output
-  const scale = outputRadius / sourceRadius
-
-  // Center of output
-  const outputCenterX = outputWidth / 2
-  const outputCenterY = outputHeight / 2
-
-  // Source region to capture (centered on circle)
-  const sourceX = circle.x - sourceRadius
-  const sourceY = circle.y - sourceRadius
-  const sourceSize = sourceRadius * 2
-
-  // Output region
-  const outputSize = outputRadius * 2
-  const outputX = outputCenterX - outputRadius
-  const outputY = outputCenterY - outputRadius
-
-  // Save context state
   ctx.save()
+  ctx.beginPath()
+  ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
+  ctx.clip()
+  ctx.drawImage(region, centerX - outputRadius, centerY - outputRadius, outputRadius * 2, outputRadius * 2)
+  ctx.restore()
 
   if (edgeStyle === 'feathered') {
-    // PVS-14 style edge: thin translucent green phosphor glow at the edge
-    // First draw the image with a hard clip
-    ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.clip()
-
-    ctx.drawImage(
-      sourceImage,
-      sourceX, sourceY, sourceSize, sourceSize,
-      outputX, outputY, outputSize, outputSize
-    )
-
-    ctx.restore()
+    // PVS-14 style edge: thin translucent phosphor glow at the tube boundary
     ctx.save()
 
-    // Now add a thin phosphor glow ring at the edge
-    // This simulates the refractive tint at the tube boundary
     const glowWidth = outputRadius * FEATHER_PERCENT
     const innerGlowRadius = outputRadius - glowWidth
-
-    // Create thin glow gradient based on phosphor color
     const glowGradient = ctx.createRadialGradient(
-      outputCenterX, outputCenterY, innerGlowRadius,
-      outputCenterX, outputCenterY, outputRadius
+      centerX, centerY, innerGlowRadius,
+      centerX, centerY, outputRadius
     )
 
-    // Subtle phosphor glow - translucent color that fades out
     if (phosphorColor === 'green') {
       glowGradient.addColorStop(0, 'rgba(0, 255, 0, 0)')
       glowGradient.addColorStop(0.3, 'rgba(0, 255, 0, 0.08)')
@@ -243,110 +216,13 @@ export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', ph
     ctx.globalCompositeOperation = 'screen'
     ctx.fillStyle = glowGradient
     ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Add very subtle fade at the outermost edge
-    ctx.restore()
-    ctx.save()
-
-    const fadeGradient = ctx.createRadialGradient(
-      outputCenterX, outputCenterY, outputRadius - glowWidth * 0.5,
-      outputCenterX, outputCenterY, outputRadius
-    )
-    fadeGradient.addColorStop(0, 'rgba(0, 0, 0, 0)')
-    fadeGradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)')
-
-    ctx.globalCompositeOperation = 'source-atop'
-    ctx.fillStyle = fadeGradient
-    ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.fill()
-
-  } else {
-    // Hard edge - simple circular clip
-    ctx.beginPath()
-    ctx.arc(outputCenterX, outputCenterY, outputRadius, 0, Math.PI * 2)
-    ctx.clip()
-
-    // Draw the image portion
-    ctx.drawImage(
-      sourceImage,
-      sourceX, sourceY, sourceSize, sourceSize,
-      outputX, outputY, outputSize, outputSize
-    )
-  }
-
-  ctx.restore()
-
-  return canvas
-}
-
-/**
- * Render a single circle crop to a specific position on canvas
- * Helper for dual render
- */
-function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outputRadius, edgeStyle, phosphorColor, rotation = 0, colorGrading = null) {
-  // Get rotated source image if rotation is applied
-  let sourceImage = rotation !== 0 ? drawRotatedImage(image, rotation) : image
-
-  // Apply color grading to source image (uses pixel manipulation for iOS Safari compatibility)
-  if (colorGrading) {
-    sourceImage = applyColorGradingToSource(sourceImage, colorGrading)
-  }
-
-  const sourceRadius = radius
-  const sourceX = circle.x - sourceRadius
-  const sourceY = circle.y - sourceRadius
-  const sourceSize = sourceRadius * 2
-  const outputSize = outputRadius * 2
-  const outputX = centerX - outputRadius
-  const outputY = centerY - outputRadius
-
-  ctx.save()
-
-  if (edgeStyle === 'feathered') {
-    ctx.beginPath()
-    ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
-    ctx.clip()
-
-    ctx.drawImage(
-      sourceImage,
-      sourceX, sourceY, sourceSize, sourceSize,
-      outputX, outputY, outputSize, outputSize
-    )
-
-    ctx.restore()
-    ctx.save()
-
-    const glowWidth = outputRadius * FEATHER_PERCENT
-    const innerGlowRadius = outputRadius - glowWidth
-    const glowGradient = ctx.createRadialGradient(
-      centerX, centerY, innerGlowRadius,
-      centerX, centerY, outputRadius
-    )
-
-    if (phosphorColor === 'green') {
-      glowGradient.addColorStop(0, 'rgba(0, 255, 0, 0)')
-      glowGradient.addColorStop(0.3, 'rgba(0, 255, 0, 0.08)')
-      glowGradient.addColorStop(0.7, 'rgba(0, 200, 0, 0.15)')
-      glowGradient.addColorStop(1, 'rgba(0, 150, 0, 0.05)')
-    } else {
-      glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0)')
-      glowGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.06)')
-      glowGradient.addColorStop(0.7, 'rgba(240, 240, 230, 0.12)')
-      glowGradient.addColorStop(1, 'rgba(220, 220, 210, 0.04)')
-    }
-
-    ctx.globalCompositeOperation = 'screen'
-    ctx.fillStyle = glowGradient
-    ctx.beginPath()
     ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
     ctx.fill()
 
     ctx.restore()
     ctx.save()
 
+    // Very subtle fade at the outermost edge
     const fadeGradient = ctx.createRadialGradient(
       centerX, centerY, outputRadius - glowWidth * 0.5,
       centerX, centerY, outputRadius
@@ -360,19 +236,41 @@ function renderCircleToCanvas(ctx, image, circle, radius, centerX, centerY, outp
     ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
     ctx.fill()
 
-  } else {
-    ctx.beginPath()
-    ctx.arc(centerX, centerY, outputRadius, 0, Math.PI * 2)
-    ctx.clip()
-
-    ctx.drawImage(
-      sourceImage,
-      sourceX, sourceY, sourceSize, sourceSize,
-      outputX, outputY, outputSize, outputSize
-    )
+    ctx.restore()
   }
+}
 
-  ctx.restore()
+/**
+ * Draw the source image with circular crop onto a canvas
+ * @param {HTMLCanvasElement} canvas - The canvas to draw on
+ * @param {HTMLImageElement|HTMLCanvasElement} image - The source image
+ * @param {Object} circle - Circle selection {x, y, radius} in image coordinates
+ * @param {string} edgeStyle - 'hard' or 'feathered'
+ * @param {string} phosphorColor - 'green' or 'white'
+ * @param {number} rotation - Rotation in degrees (0, 90, 180, 270)
+ * @param {string} aspectRatio - Output aspect ratio ('9:16' or '1:1')
+ */
+export function renderCroppedImage(canvas, image, circle, edgeStyle = 'hard', phosphorColor = 'green', rotation = 0, aspectRatio = '9:16', colorGrading = null) {
+  const { width: outputWidth, height: outputHeight } = getOutputDimensions(aspectRatio)
+  const ctx = canvas.getContext('2d')
+  canvas.width = outputWidth
+  canvas.height = outputHeight
+
+  // Fill with black background
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, outputWidth, outputHeight)
+
+  // Circle is capped at MAX_CIRCLE_PERCENT of the smaller output dimension
+  const smallerDim = Math.min(outputWidth, outputHeight)
+  const outputRadius = (smallerDim * MAX_CIRCLE_PERCENT) / 2
+
+  renderCircleToCanvas(
+    ctx, image, circle, circle.radius,
+    outputWidth / 2, outputHeight / 2, outputRadius,
+    edgeStyle, phosphorColor, rotation, colorGrading
+  )
+
+  return canvas
 }
 
 /**
@@ -439,12 +337,15 @@ export function exportCanvas(canvas, filename, format = 'png', quality = 0.92) {
   const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png'
   const extension = format === 'jpeg' ? 'jpg' : 'png'
 
-  const dataUrl = canvas.toDataURL(mimeType, quality)
-
-  const link = document.createElement('a')
-  link.download = `${filename}-nvcrop.${extension}`
-  link.href = dataUrl
-  link.click()
+  canvas.toBlob((blob) => {
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.download = `${filename}-nvcrop.${extension}`
+    link.href = url
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }, mimeType, quality)
 }
 
 /**
@@ -464,6 +365,21 @@ export function getInitialCircle(imageWidth, imageHeight) {
     y: centerY,
     radius,
   }
+}
+
+/**
+ * Radius multiplier per scroll-wheel tick when resizing the circle
+ */
+export const WHEEL_ZOOM_FACTOR = 1.05
+
+/**
+ * Distance between the first two touches of a touch list
+ */
+export function getTouchDistance(touches) {
+  return Math.hypot(
+    touches[0].clientX - touches[1].clientX,
+    touches[0].clientY - touches[1].clientY
+  )
 }
 
 /**
